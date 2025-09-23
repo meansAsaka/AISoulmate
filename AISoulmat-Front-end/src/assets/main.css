@@ -1,35 +1,28 @@
 @import './base.css';
 
-#app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  font-weight: normal;
+:root {
+  /* 亮色主题变量 */
+  --bg-gradient: linear-gradient(to right, #d0e7ff, #a0d0ff);
+  --text-color: #333;
+  --border-color: white; /* 默认亮色边框 */
+  --area-bg: rgba(255, 255, 250, 0.4); /* 浅的亮色主题半透明背景 */
 }
 
-a,
-.green {
-  text-decoration: none;
-  color: hsla(160, 100%, 37%, 1);
-  transition: 0.4s;
-  padding: 3px;
+/* 暗色主题变量 */
+.dark-theme {
+  --bg-gradient: linear-gradient(to right, #2c2c2c, #444444);
+  --text-color: #f0f0f0;
+  --border-color: black; /* 深灰边框 */
+  --area-bg: rgba(30, 30, 30, 0.8); /* 暗色主题区域背景：深灰半透明 */
 }
 
-@media (hover: hover) {
-  a:hover {
-    background-color: hsla(160, 100%, 37%, 0.2);
-  }
-}
-
-@media (min-width: 1024px) {
-  body {
-    display: flex;
-    place-items: center;
-  }
-
-  #app {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    padding: 0 2rem;
-  }
+/* 全局应用变量 */
+body {
+  font-family: 'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+  color: var(--text-color);
+  min-height: 100vh;
+  background: var(--bg-gradient);
+  transition:
+    background 0.3s,
+    color 0.3s;
 }
