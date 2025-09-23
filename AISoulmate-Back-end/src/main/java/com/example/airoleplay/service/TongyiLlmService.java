@@ -30,7 +30,14 @@ public class TongyiLlmService implements LlmService {
         try {
             // 保存用户消息
             sessionService.saveMessage(sessionId, com.example.airoleplay.entity.Message.Role.user, text);
-            
+
+            // 获取 Session 实体
+            com.example.airoleplay.entity.Session session = sessionService.getSessionById(sessionId).orElse(null);
+            if (session == null) {
+                log.error("未找到会话: {}", sessionId);
+                return;
+            }
+
             // 构建请求
             Map<String, Object> request = new HashMap<>();
             request.put("model", "qwen-turbo");
@@ -49,9 +56,12 @@ public class TongyiLlmService implements LlmService {
                 .build();
 
             StringBuilder fullResponse = new StringBuilder();
+
+            // 构建带人设的 prompt
+            String prompt = buildRolePlayPrompt(text, session);
             
             // 调用真实API
-            String response = callTongyiApi(text);
+            String response = callTongyiApi(prompt);
             sessionService.saveMessage(sessionId, com.example.airoleplay.entity.Message.Role.assistant, response);
             
             // 发送完整响应
@@ -156,22 +166,5 @@ public class TongyiLlmService implements LlmService {
         prompt.append("\n用户问题：").append(userText);
         
         return prompt.toString();
-    }
-    
-    private void simulateResponse(String text, String sessionId, WebSocketSession webSocketSession) {
-        try {
-            String response = "我是通义千问，收到了您的消息：" + text;
-            sessionService.saveMessage(sessionId, com.example.airoleplay.entity.Message.Role.assistant, response);
-            
-            synchronized (webSocketSession) {
-                // 发送完整响应
-                Map<String, Object> msg = new HashMap<>();
-                msg.put("delta", response);
-                msg.put("done", true);
-                webSocketSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(msg)));
-            }
-        } catch (Exception e) {
-            log.error("模拟响应失败", e);
-        }
     }
 }
