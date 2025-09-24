@@ -1,7 +1,7 @@
 package com.example.airoleplay.controller;
 
 import com.example.airoleplay.entity.Character;
-import com.example.airoleplay.service.CharacterService;
+import com.example.airoleplay.service.impl.CharacterService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

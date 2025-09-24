@@ -1,4 +1,4 @@
-package com.example.airoleplay.service;
+package com.example.airoleplay.service.impl;
 
 import com.example.airoleplay.dto.CreateSessionRequest;
 import com.example.airoleplay.entity.Message;

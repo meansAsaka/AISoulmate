@@ -1,5 +1,6 @@
-package com.example.airoleplay.service;
+package com.example.airoleplay.service.impl;
 
+import com.example.airoleplay.service.LlmService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;

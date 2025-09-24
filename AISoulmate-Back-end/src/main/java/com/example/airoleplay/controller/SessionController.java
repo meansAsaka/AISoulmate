@@ -3,14 +3,13 @@ package com.example.airoleplay.controller;
 import com.example.airoleplay.dto.CreateSessionRequest;
 import com.example.airoleplay.entity.Message;
 import com.example.airoleplay.entity.Session;
-import com.example.airoleplay.service.LlmServiceFactory;
-import com.example.airoleplay.service.SessionService;
+import com.example.airoleplay.service.impl.LlmServiceFactory;
+import com.example.airoleplay.service.impl.SessionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Map;
 
 @RestController

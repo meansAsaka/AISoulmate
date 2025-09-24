@@ -1,5 +1,6 @@
-package com.example.airoleplay.service;
+package com.example.airoleplay.service.impl;
 
+import com.example.airoleplay.service.LlmService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

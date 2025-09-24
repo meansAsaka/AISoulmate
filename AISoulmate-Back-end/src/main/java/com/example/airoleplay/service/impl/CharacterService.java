@@ -1,4 +1,4 @@
-package com.example.airoleplay.service;
+package com.example.airoleplay.service.impl;
 
 import com.example.airoleplay.entity.Character;
 import com.example.airoleplay.repository.CharacterRepository;
