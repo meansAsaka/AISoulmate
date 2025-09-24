@@ -42,30 +42,13 @@
       <main class="main">
         <h1>热门角色</h1>
         <div class="image-row">
-          <div class="image-card" @click="goChat">
-            <img src="../assets/images/哈利波特.png" alt="哈利波特" />
+          <!-- ✅ 使用 v-for 渲染角色卡片 -->
+          <div v-for="role in roles" :key="role.name" class="image-card" @click="goChat(role)">
+            <img :src="role.avatar" :alt="role.name" />
             <div class="image-info">
-              <div class="image-name">名字：哈利波特</div>
-              <div class="image-tag">标签：魔法师</div>
-              <div class="image-desc">简介：霍格沃茨魔法学校的学生，勇敢善良，擅长魔法。</div>
-            </div>
-          </div>
-
-          <div class="image-card" @click="goChat">
-            <img src="../assets/images/苏格拉底.png" alt="苏格拉底" />
-            <div class="image-info">
-              <div class="image-name">名字：苏格拉底</div>
-              <div class="image-tag">标签：历史人物</div>
-              <div class="image-desc">简介：古希腊哲学家，强调自我认知和道德哲学。</div>
-            </div>
-          </div>
-
-          <div class="image-card" @click="goChat">
-            <img src="../assets/images/诸葛亮.png" alt="诸葛亮" />
-            <div class="image-info">
-              <div class="image-name">名字：诸葛亮</div>
-              <div class="image-tag">标签：历史人物</div>
-              <div class="image-desc">简介：三国时期蜀国丞相，智慧超群，擅长谋略。</div>
+              <div class="image-name">名字：{{ role.name }}</div>
+              <div class="image-tag">标签：{{ role.tag }}</div>
+              <div class="image-desc">简介：{{ role.desc }}</div>
             </div>
           </div>
         </div>
@@ -94,8 +77,37 @@ const goRegister = () => {
   router.push({ name: 'register' })
 }
 
-const goChat = () => {
-  router.push({ name: 'chat' })
+const roles = [
+  {
+    name: '哈利波特',
+    avatar: new URL('../assets/images/哈利波特.png', import.meta.url).href,
+    tag: '魔法师',
+    desc: '霍格沃茨魔法学校的学生，勇敢善良，擅长魔法。',
+  },
+  {
+    name: '苏格拉底',
+    avatar: new URL('../assets/images/苏格拉底.png', import.meta.url).href,
+    tag: '历史人物',
+    desc: '古希腊哲学家，强调自我认知和道德哲学。',
+  },
+  {
+    name: '诸葛亮',
+    avatar: new URL('../assets/images/诸葛亮.png', import.meta.url).href,
+    tag: '历史人物',
+    desc: '三国时期蜀国丞相，智慧超群，擅长谋略。',
+  },
+]
+
+const goChat = (role: (typeof roles)[number]) => {
+  router.push({
+    name: 'chat', // ChatPage 的路由命名
+    query: {
+      name: role.name,
+      avatar: role.avatar,
+      tag: role.tag,
+      desc: role.desc,
+    },
+  })
 }
 </script>
 

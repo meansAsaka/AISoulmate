@@ -25,7 +25,7 @@
           <button type="submit" class="btn primary">登 录</button>
         </form>
 
-        <div class="footer-meta"></div>
+        <div class="footer-meta">没有账号？<a class="login-tip-link" href="/register">注册</a></div>
       </div>
     </section>
   </div>
@@ -131,7 +131,7 @@ const handleSubmit = (e: Event) => {
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid rgba(0, 0, 0, 0.06);
   box-shadow: 0 18px 50px rgba(30, 60, 120, 0.15);
-  color: var(--text-color);
+  color: rgba(0, 0, 0, 0.7);
   animation: card-in 320ms ease-out;
 }
 
@@ -194,6 +194,7 @@ const handleSubmit = (e: Event) => {
   background: linear-gradient(180deg, #5aa3ff 0%, #3b82f6 100%);
   color: #fff;
   font-weight: 600;
+  font-size: 1rem;
   cursor: pointer;
   box-shadow: 0 8px 18px rgba(59, 130, 246, 0.35);
   transition:
@@ -212,33 +213,23 @@ const handleSubmit = (e: Event) => {
 }
 
 .footer-meta {
-  display: grid;
-  justify-items: center;
-  gap: 6px;
-  margin-top: 18px;
-  font-size: 12px;
-  opacity: 0.8;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 28px;
+  font-size: 1rem;
+  opacity: 0.95;
+  gap: 8px;
 }
-
-/* 暗色主题适配 */
-.dark-theme .card {
-  background: rgba(0, 0, 0, 0.45);
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+.login-tip-link {
+  color: #3b82f6;
+  text-decoration: underline;
+  margin-left: 4px;
+  font-weight: 500;
+  transition: color 0.2s;
 }
-.dark-theme .input {
-  background-color: rgba(0, 0, 0, 0.35);
-  border-color: rgba(255, 255, 255, 0.12);
-  color: #fff;
-}
-.dark-theme .form .input[type='text'] {
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg>");
-}
-.dark-theme .form .input[type='password'] {
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='11' width='18' height='11' rx='2' ry='2'/><path d='M7 11V7a5 5 0 0 1 10 0v4'/></svg>");
-}
-.dark-theme .input::placeholder {
-  color: rgba(255, 255, 255, 0.6);
+.login-tip-link:hover {
+  color: #7c3aed;
 }
 
 @keyframes card-in {
