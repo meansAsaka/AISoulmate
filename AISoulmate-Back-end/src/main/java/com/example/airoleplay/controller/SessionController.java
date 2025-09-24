@@ -7,6 +7,8 @@ import com.example.airoleplay.service.impl.LlmServiceFactory;
 import com.example.airoleplay.service.impl.SessionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,7 +23,9 @@ public class SessionController {
 
     @PostMapping
     public ResponseEntity<Session> createSession(@RequestBody CreateSessionRequest request) {
-        Session session = sessionService.createSession(request);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String userId = authentication.getName();
+        Session session = sessionService.createSession(userId, request);
         return ResponseEntity.ok(session);
     }
 
