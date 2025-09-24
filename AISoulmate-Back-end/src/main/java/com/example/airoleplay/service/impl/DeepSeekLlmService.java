@@ -54,7 +54,7 @@ public class DeepSeekLlmService implements LlmService {
 
             // 构建带人设的 prompt
             String prompt = buildRolePlayPrompt(text, session);
-            
+
             // 调用真实API
             String response = callDeepSeekApi(prompt);
             sessionService.saveMessage(sessionId, com.example.airoleplay.entity.Message.Role.assistant, response);
@@ -128,10 +128,10 @@ public class DeepSeekLlmService implements LlmService {
             throw new RuntimeException("DeepSeek API调用失败: " + e.getMessage(), e);
         }
     }
-    
+
     private String buildRolePlayPrompt(String userText, com.example.airoleplay.entity.Session session) {
         StringBuilder prompt = new StringBuilder();
-        
+
         // 获取角色信息
         characterService.getCharacterById(session.getCharacterId())
             .ifPresent(character -> {
@@ -140,7 +140,7 @@ public class DeepSeekLlmService implements LlmService {
                     prompt.append("角色描述：").append(character.getBrief()).append("\n");
                 }
             });
-        
+
         // 根据模式添加指导
         switch (session.getMode()) {
             case immersive:
@@ -153,9 +153,20 @@ public class DeepSeekLlmService implements LlmService {
                 prompt.append("请用苏格拉底式的问答方法，通过提问来引导思考。\n");
                 break;
         }
-        
+
+        // 获取当前会话最新的五个消息
+        StringBuilder history = new StringBuilder();
+        List<com.example.airoleplay.entity.Message> messages = sessionService.getLatestSessionMessagesByUserId(session.getId());
+        history.append("会话ID: ").append(session.getId()).append("\n");
+        for (com.example.airoleplay.entity.Message msg : messages) {
+            history.append(msg.getRole()).append(": ").append(msg.getText()).append("\n");
+        }
+        history.append("\n");
+
+        prompt.append("\n你们的历史对话：\n").append(history);
+
         prompt.append("\n用户问题：").append(userText);
-        
+
         return prompt.toString();
     }
 }

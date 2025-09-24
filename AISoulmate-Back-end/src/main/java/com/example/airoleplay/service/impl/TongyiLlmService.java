@@ -22,7 +22,7 @@ public class TongyiLlmService implements LlmService {
     private final SessionService sessionService;
     private final CharacterService characterService;
     private final ObjectMapper objectMapper = new ObjectMapper();
-    
+
     @Value("${llm.tongyi.api-key}")
     private String apiKey;
 
@@ -42,29 +42,29 @@ public class TongyiLlmService implements LlmService {
             // 构建请求
             Map<String, Object> request = new HashMap<>();
             request.put("model", "qwen-turbo");
-            
+
             Map<String, Object> input = new HashMap<>();
             input.put("messages", List.of(Map.of("role", "user", "content", text)));
             request.put("input", input);
-            
+
             Map<String, Object> parameters = new HashMap<>();
             parameters.put("incremental_output", true);
             request.put("parameters", parameters);
 
             WebClient client = WebClient.builder()
-                .defaultHeader("Authorization", "Bearer " + apiKey)
-                .defaultHeader("Content-Type", "application/json")
-                .build();
+                    .defaultHeader("Authorization", "Bearer " + apiKey)
+                    .defaultHeader("Content-Type", "application/json")
+                    .build();
 
             StringBuilder fullResponse = new StringBuilder();
 
             // 构建带人设的 prompt
             String prompt = buildRolePlayPrompt(text, session);
-            
+
             // 调用真实API
             String response = callTongyiApi(prompt);
             sessionService.saveMessage(sessionId, com.example.airoleplay.entity.Message.Role.assistant, response);
-            
+
             // 发送完整响应
             synchronized (webSocketSession) {
                 Map<String, Object> msg = new HashMap<>();
@@ -72,52 +72,52 @@ public class TongyiLlmService implements LlmService {
                 msg.put("done", true);
                 webSocketSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(msg)));
             }
-                
+
         } catch (Exception e) {
             log.error("通义千问API调用失败", e);
         }
     }
-    
+
     private String callTongyiApi(String text) throws Exception {
         Map<String, Object> request = new HashMap<>();
         request.put("model", "qwen-turbo");
-        
+
         Map<String, Object> input = new HashMap<>();
         input.put("messages", List.of(Map.of("role", "user", "content", text)));
         request.put("input", input);
-        
+
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("result_format", "message");
         request.put("parameters", parameters);
-        
+
         WebClient client = WebClient.builder()
-            .defaultHeader("Authorization", "Bearer " + apiKey)
-            .defaultHeader("Content-Type", "application/json")
-            .defaultHeader("Accept", "application/json")
-            .build();
-            
+                .defaultHeader("Authorization", "Bearer " + apiKey)
+                .defaultHeader("Content-Type", "application/json")
+                .defaultHeader("Accept", "application/json")
+                .build();
+
         String response = client.post()
-            .uri("https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation")
-            .bodyValue(request)
-            .retrieve()
-            .bodyToMono(String.class)
-            .block();
-            
+                .uri("https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation")
+                .bodyValue(request)
+                .retrieve()
+                .bodyToMono(String.class)
+                .block();
+
         log.info("通义千问API响应: {}", response);
         JsonNode node = objectMapper.readTree(response);
-        
+
         // 检查是否有错误
         if (node.has("code")) {
             throw new RuntimeException("API调用失败: " + node.path("message").asText());
         }
-        
+
         String result = node.path("output").path("choices").get(0).path("message").path("content").asText();
         if (result.isEmpty()) {
             result = node.path("output").path("text").asText();
         }
         return result.isEmpty() ? "通义千问回复：" + text : result;
     }
-    
+
     @Override
     public String generateResponse(String text) {
         try {
@@ -127,7 +127,7 @@ public class TongyiLlmService implements LlmService {
             throw new RuntimeException("通义千问API调用失败: " + e.getMessage(), e);
         }
     }
-    
+
     @Override
     public String generateResponse(String text, com.example.airoleplay.entity.Session session) {
         try {
@@ -138,19 +138,19 @@ public class TongyiLlmService implements LlmService {
             throw new RuntimeException("通义千问API调用失败: " + e.getMessage(), e);
         }
     }
-    
+
     private String buildRolePlayPrompt(String userText, com.example.airoleplay.entity.Session session) {
         StringBuilder prompt = new StringBuilder();
-        
+
         // 获取角色信息
         characterService.getCharacterById(session.getCharacterId())
-            .ifPresent(character -> {
-                prompt.append("你现在要扮演角色：").append(character.getName()).append("\n");
-                if (character.getBrief() != null) {
-                    prompt.append("角色描述：").append(character.getBrief()).append("\n");
-                }
-            });
-        
+                .ifPresent(character -> {
+                    prompt.append("你现在要扮演角色：").append(character.getName()).append("\n");
+                    if (character.getBrief() != null) {
+                        prompt.append("角色描述：").append(character.getBrief()).append("\n");
+                    }
+                });
+
         // 根据模式添加指导
         switch (session.getMode()) {
             case immersive:
@@ -163,9 +163,19 @@ public class TongyiLlmService implements LlmService {
                 prompt.append("请用苏格拉底式的问答方法，通过提问来引导思考。\n");
                 break;
         }
-        
+
+        // 获取当前会话最新的五个消息
+        StringBuilder history = new StringBuilder();
+        List<com.example.airoleplay.entity.Message> messages = sessionService.getLatestSessionMessagesByUserId(session.getId());
+        history.append("会话ID: ").append(session.getId()).append("\n");
+        for (com.example.airoleplay.entity.Message msg : messages) {
+            history.append(msg.getRole()).append(": ").append(msg.getText()).append("\n");
+        }
+        history.append("\n");
+        prompt.append("\n你们的历史对话：\n").append(history);
+
         prompt.append("\n用户问题：").append(userText);
-        
+
         return prompt.toString();
     }
 }

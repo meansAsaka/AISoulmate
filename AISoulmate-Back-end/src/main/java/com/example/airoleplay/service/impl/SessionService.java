@@ -17,9 +17,9 @@ public class SessionService {
     private final SessionRepository sessionRepository;
     private final MessageRepository messageRepository;
 
-    public Session createSession(CreateSessionRequest request) {
+    public Session createSession(String userId, CreateSessionRequest request) {
         Session session = new Session();
-        session.setUserId("test-user-1"); // 简化处理，使用固定用户ID
+        session.setUserId(userId); // 使用实际用户ID
         session.setCharacterId(request.getCharacterId());
         session.setMode(request.getMode());
         session.setModelName(request.getModelName());
@@ -40,5 +40,9 @@ public class SessionService {
         message.setRole(role);
         message.setText(text);
         return messageRepository.save(message);
+    }
+
+    public List<Message> getLatestSessionMessagesByUserId(String sessionId) {
+        return messageRepository.findTop10BySessionIdOrderByCreatedAtDesc(sessionId);
     }
 }
