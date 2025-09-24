@@ -2,6 +2,7 @@ package com.example.airoleplay.service.impl;
 
 import com.example.airoleplay.dto.LoginRequest;
 import com.example.airoleplay.dto.RegisterRequest;
+import com.example.airoleplay.dto.UpdatePasswordRequest;
 import com.example.airoleplay.dto.UserResponse;
 import com.example.airoleplay.entity.User;
 import com.example.airoleplay.repository.UserRepository;
@@ -11,6 +12,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
 @Service
@@ -58,6 +61,23 @@ public class UserServiceImpl implements UserService {
         String token = jwtUtil.generateToken(user.getId(), user.getEmail());
         resp.setToken(token);
         return resp;
+    }
+
+    public UserResponse updatePassword(UpdatePasswordRequest req) {
+        Optional<User> userOpt = userRepository.findByEmail(req.getEmail());
+        if (userOpt.isEmpty()) {
+            throw new RuntimeException("用户不存在");
+        }
+        User user = userOpt.get();
+        if (!passwordEncoder.matches(req.getOldPassword(), user.getPasswordHash())) {
+            throw new RuntimeException("旧密码错误");
+        }
+        user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
+        // 设置 updatedAt 字段为当前时间字符串
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        user.setUpdatedAt(LocalDateTime.now().format(formatter));
+        userRepository.save(user);
+        return toResponse(user);
     }
 
     private UserResponse toResponse(User user) {

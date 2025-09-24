@@ -2,6 +2,7 @@ package com.example.airoleplay.controller;
 
 import com.example.airoleplay.dto.LoginRequest;
 import com.example.airoleplay.dto.RegisterRequest;
+import com.example.airoleplay.dto.UpdatePasswordRequest;
 import com.example.airoleplay.dto.UserResponse;
 import com.example.airoleplay.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,5 +23,9 @@ public class UserController {
     public UserResponse login(@RequestBody LoginRequest req) {
         return userService.login(req);
     }
-}
 
+    @PostMapping("/updatePassword")
+    public UserResponse updatePassword(@RequestBody UpdatePasswordRequest req) {
+        return userService.updatePassword(req);
+    }
+}

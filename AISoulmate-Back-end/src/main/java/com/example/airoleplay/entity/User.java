@@ -27,4 +27,7 @@ public class User {
     private LocalDateTime createdAt = LocalDateTime.now();
 
     private String avatar;
+
+    @Column(name = "updated_at")
+    private String updatedAt;
 }
