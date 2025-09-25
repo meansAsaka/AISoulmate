@@ -52,6 +52,7 @@ public class SessionController {
 
             // 保存用户消息
             sessionService.saveMessage(id, Message.Role.user, text);
+            sessionService.saveMessagesToRedis(id, text);
 
             // 获取会话信息
             Session session = sessionService.getSessionById(id).orElse(null);
@@ -64,6 +65,7 @@ public class SessionController {
             
             // 保存AI回复
             sessionService.saveMessage(id, Message.Role.assistant, response);
+            sessionService.saveMessagesToRedis(id, response);
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
