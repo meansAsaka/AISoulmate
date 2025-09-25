@@ -15,6 +15,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.example.airoleplay.util.PromptBuilder;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -31,6 +33,7 @@ public class TongyiLlmService implements LlmService {
         try {
             // 保存用户消息
             sessionService.saveMessage(sessionId, com.example.airoleplay.entity.Message.Role.user, text);
+            sessionService.saveMessagesToRedis(sessionId,  text);
 
             // 获取 Session 实体
             com.example.airoleplay.entity.Session session = sessionService.getSessionById(sessionId).orElse(null);
@@ -39,31 +42,16 @@ public class TongyiLlmService implements LlmService {
                 return;
             }
 
-            // 构建请求
-            Map<String, Object> request = new HashMap<>();
-            request.put("model", "qwen-turbo");
-
-            Map<String, Object> input = new HashMap<>();
-            input.put("messages", List.of(Map.of("role", "user", "content", text)));
-            request.put("input", input);
-
-            Map<String, Object> parameters = new HashMap<>();
-            parameters.put("incremental_output", true);
-            request.put("parameters", parameters);
-
-            WebClient client = WebClient.builder()
-                    .defaultHeader("Authorization", "Bearer " + apiKey)
-                    .defaultHeader("Content-Type", "application/json")
-                    .build();
-
-            StringBuilder fullResponse = new StringBuilder();
+            // 获取历史消息
+            List<String> historytexts = sessionService.getMessagesFromRedis(session.getId());
 
             // 构建带人设的 prompt
-            String prompt = buildRolePlayPrompt(text, session);
+            String prompt = PromptBuilder.buildRolePlayPrompt(text, session, characterService, historytexts);
 
             // 调用真实API
             String response = callTongyiApi(prompt);
             sessionService.saveMessage(sessionId, com.example.airoleplay.entity.Message.Role.assistant, response);
+            sessionService.saveMessagesToRedis(sessionId, response);
 
             // 发送完整响应
             synchronized (webSocketSession) {
@@ -131,51 +119,12 @@ public class TongyiLlmService implements LlmService {
     @Override
     public String generateResponse(String text, com.example.airoleplay.entity.Session session) {
         try {
-            String prompt = buildRolePlayPrompt(text, session);
+            List<String> historytexts = sessionService.getMessagesFromRedis(session.getId());
+            String prompt = PromptBuilder.buildRolePlayPrompt(text, session, characterService, historytexts);
             return callTongyiApi(prompt);
         } catch (Exception e) {
             log.error("通义千问API调用失败", e);
             throw new RuntimeException("通义千问API调用失败: " + e.getMessage(), e);
         }
-    }
-
-    private String buildRolePlayPrompt(String userText, com.example.airoleplay.entity.Session session) {
-        StringBuilder prompt = new StringBuilder();
-
-        // 获取角色信息
-        characterService.getCharacterById(session.getCharacterId())
-                .ifPresent(character -> {
-                    prompt.append("你现在要扮演角色：").append(character.getName()).append("\n");
-                    if (character.getBrief() != null) {
-                        prompt.append("角色描述：").append(character.getBrief()).append("\n");
-                    }
-                });
-
-        // 根据模式添加指导
-        switch (session.getMode()) {
-            case immersive:
-                prompt.append("请完全沉浸在这个角色中，用第一人称回答，保持角色的性格特点和说话方式。\n");
-                break;
-            case academic:
-                prompt.append("请以学术讨论的方式，结合角色的知识背景来回答问题。\n");
-                break;
-            case socratic:
-                prompt.append("请用苏格拉底式的问答方法，通过提问来引导思考。\n");
-                break;
-        }
-
-        // 获取当前会话最新的五个消息
-        StringBuilder history = new StringBuilder();
-        List<com.example.airoleplay.entity.Message> messages = sessionService.getLatestSessionMessagesByUserId(session.getId());
-        history.append("会话ID: ").append(session.getId()).append("\n");
-        for (com.example.airoleplay.entity.Message msg : messages) {
-            history.append(msg.getRole()).append(": ").append(msg.getText()).append("\n");
-        }
-        history.append("\n");
-        prompt.append("\n你们的历史对话：\n").append(history);
-
-        prompt.append("\n用户问题：").append(userText);
-
-        return prompt.toString();
     }
 }
