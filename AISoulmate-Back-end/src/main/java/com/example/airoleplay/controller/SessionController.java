@@ -72,4 +72,12 @@ public class SessionController {
             return ResponseEntity.internalServerError().body("处理消息失败: " + e.getMessage());
         }
     }
+
+    @GetMapping("/history")
+    public ResponseEntity<List<Session>> getUserSessions() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String userId = authentication.getName();
+        List<Session> sessions = sessionService.getSessionsByUserId(userId);
+        return ResponseEntity.ok(sessions);
+    }
 }

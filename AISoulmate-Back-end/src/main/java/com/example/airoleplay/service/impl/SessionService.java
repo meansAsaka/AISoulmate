@@ -82,4 +82,8 @@ public class SessionService {
         }
         return messages;
     }
+
+    public List<Session> getSessionsByUserId(String userId) {
+        return sessionRepository.findByUserId(userId);
+    }
 }
