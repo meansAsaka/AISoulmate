@@ -61,7 +61,7 @@ public class SessionController {
             }
 
             // 调用LLM服务生成回复，传入会话信息
-            String response = llmServiceFactory.getService(session.getModelName()).generateResponse(text, session);
+            String response = llmServiceFactory.getService(request.get("modelName")).generateResponse(text, session);
             
             // 保存AI回复
             sessionService.saveMessage(id, Message.Role.assistant, response);

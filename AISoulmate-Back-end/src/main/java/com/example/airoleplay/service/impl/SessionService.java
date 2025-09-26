@@ -27,7 +27,7 @@ public class SessionService {
         session.setUserId(userId); // 使用实际用户ID
         session.setCharacterId(request.getCharacterId());
         session.setMode(request.getMode());
-        session.setModelName(request.getModelName());
+
         return sessionRepository.save(session);
     }
 
