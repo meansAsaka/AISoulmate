@@ -77,28 +77,56 @@ const goRegister = () => {
   router.push({ name: 'register' })
 }
 
-const roles = [
-  {
-    name: '哈利波特',
-    avatar: new URL('../assets/images/哈利波特.png', import.meta.url).href,
-    tag: '魔法师',
-    desc: '霍格沃茨魔法学校的学生，勇敢善良，擅长魔法。',
-  },
-  {
-    name: '苏格拉底',
-    avatar: new URL('../assets/images/苏格拉底.png', import.meta.url).href,
-    tag: '历史人物',
-    desc: '古希腊哲学家，强调自我认知和道德哲学。',
-  },
-  {
-    name: '诸葛亮',
-    avatar: new URL('../assets/images/诸葛亮.png', import.meta.url).href,
-    tag: '历史人物',
-    desc: '三国时期蜀国丞相，智慧超群，擅长谋略。',
-  },
-]
+import { ref, onMounted } from 'vue'
 
-const goChat = (role: (typeof roles)[number]) => {
+type Role = { id: string; name: string; avatar: string; tag: string; desc: string; popularity?: number }
+const roles = ref<Role[]>([])
+const loading = ref(false)
+const error = ref<string | null>(null)
+
+const parseTags = (tagsStr: string | null) => {
+  if (!tagsStr) return ''
+  try {
+    const parsed = JSON.parse(tagsStr)
+    if (Array.isArray(parsed) && parsed.length > 0) return String(parsed[0])
+    return ''
+  } catch (e) {
+    // 如果 tags 不是 JSON 字符串，尝试简单分隔
+    return String(tagsStr).replace(/\[|\]|\"/g, '')?.split(',')[0] || ''
+  }
+}
+
+onMounted(async () => {
+  loading.value = true
+  error.value = null
+  // 使用相对路径 /api 开发时通过 Vite proxy 转发到后端；如需在生产使用自定义地址，请在代码中替换为 import.meta.env.VITE_API_BASE
+  const base = '/api'
+  try {
+    const res = await fetch(`${base}/characters`)
+    if (!res.ok) throw new Error(`请求失败: ${res.status}`)
+    const data = await res.json()
+    // data 预期为数组
+    if (Array.isArray(data)) {
+      roles.value = data.map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        avatar: item.avatarUrl || item.avatar || '',
+        tag: parseTags(item.tags) || item.brief || '',
+        desc: item.brief || '',
+        popularity: item.popularity,
+      }))
+    } else {
+      throw new Error('返回数据不是数组')
+    }
+  } catch (err: any) {
+    console.error(err)
+    error.value = err?.message || String(err)
+  } finally {
+    loading.value = false
+  }
+})
+
+const goChat = (role: Role) => {
   router.push({
     name: 'chat', // ChatPage 的路由命名
     query: {
