@@ -1,6 +1,7 @@
 package com.example.airoleplay.controller;
 
 import com.example.airoleplay.dto.CreateSessionRequest;
+import com.example.airoleplay.dto.SessionHistoryDto;
 import com.example.airoleplay.entity.Message;
 import com.example.airoleplay.entity.Session;
 import com.example.airoleplay.service.impl.LlmServiceFactory;
@@ -79,10 +80,14 @@ public class SessionController {
     }
 
     @GetMapping("/history")
-    public ResponseEntity<List<Session>> getUserSessions() {
+    public ResponseEntity<List<SessionHistoryDto>> getUserSessions() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String userId = authentication.getName();
-        List<Session> sessions = sessionService.getSessionsByUserId(userId);
+        List<SessionHistoryDto> sessions = sessionService.getSessionHistoriesByUserId(userId);
+        // 过滤掉 latestMessageText 为空的项
+        sessions = sessions.stream()
+                .filter(s -> s.getLatestMessageText() != null && !s.getLatestMessageText().isEmpty())
+                .toList();
         return ResponseEntity.ok(sessions);
     }
 }

@@ -2,6 +2,7 @@ package com.example.airoleplay.service.impl;
 
 import ch.qos.logback.classic.Logger;
 import com.example.airoleplay.dto.CreateSessionRequest;
+import com.example.airoleplay.dto.SessionHistoryDto;
 import com.example.airoleplay.entity.Message;
 import com.example.airoleplay.entity.Session;
 import com.example.airoleplay.repository.MessageRepository;
@@ -83,7 +84,7 @@ public class SessionService {
         return messages;
     }
 
-    public List<Session> getSessionsByUserId(String userId) {
-        return sessionRepository.findByUserId(userId);
+    public List<SessionHistoryDto> getSessionHistoriesByUserId(String userId) {
+        return sessionRepository.findSessionHistoriesByUserId(userId);
     }
 }
