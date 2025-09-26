@@ -130,6 +130,7 @@ const goChat = (role: Role) => {
   router.push({
     name: 'chat', // ChatPage 的路由命名
     query: {
+      characterId: role.id,
       name: role.name,
       avatar: role.avatar,
       tag: role.tag,

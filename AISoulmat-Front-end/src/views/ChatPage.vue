@@ -46,9 +46,13 @@
 
       <form class="chat-input-bar" @submit.prevent="sendMsg">
         <div class="input-group-chat">
-          <input v-model="input" class="chat-input" type="text" :placeholder="`和${name}聊天...`" />
-          <button class="send-btn" type="submit" title="发送">
-            <svg width="38" height="38" viewBox="0 0 1024 1024" fill="none">
+          <select v-model="modelName" class="model-select" :disabled="creatingSession || sendLoading" aria-label="选择模型">
+            <option value="tongyi">通义</option>
+            <option value="deepseek">DeepSeek</option>
+          </select>
+          <input v-model="input" class="chat-input" type="text" :placeholder="`和${name}聊天...`" :disabled="creatingSession || sendLoading" />
+          <button class="send-btn" type="submit" :title="sendLoading ? '发送中...' : '发送'" :disabled="creatingSession || sendLoading">
+            <svg v-if="!sendLoading" width="38" height="38" viewBox="0 0 1024 1024" fill="none">
               <circle cx="512" cy="512" r="512" fill="url(#planeGradient)" />
               <path d="M256 512l512-192-192 512-64-192-192-64z" fill="#fff" />
               <defs>
@@ -64,6 +68,9 @@
                   <stop offset="1" stop-color="#7c3aed" />
                 </linearGradient>
               </defs>
+            </svg>
+            <svg v-else width="22" height="22" viewBox="0 0 50 50">
+              <circle cx="25" cy="25" r="20" stroke="#ccc" stroke-width="4" fill="none" stroke-linecap="round" />
             </svg>
           </button>
         </div>
@@ -86,7 +93,7 @@ function goHome() {
 function closeChat() {
   router.push({ name: 'home' })
 }
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 
 // ✅ 获取路由参数
@@ -95,6 +102,7 @@ const name = (route.query.name as string) || 'AI'
 const avatar = (route.query.avatar as string) || '/Logo.ico'
 const tag = (route.query.tag as string) || ''
 const desc = (route.query.desc as string) || ''
+const characterId = (route.query.characterId as string) || ''
 
 // ✅ 消息列表
 const input = ref('')
@@ -106,31 +114,112 @@ const messages = ref([
   },
 ])
 
+// session 管理
+const sessionId = ref<string | null>(null)
+const creatingSession = ref(false)
+const sendLoading = ref(false)
+// 选择模型名称（tongyi 或 deepseek）
+const modelName = ref<'tongyi' | 'deepseek'>('tongyi')
+
 function startVoiceCall() {
   // TODO: WebSocket语音功能实现
   alert('语音通话功能开发中...')
 }
 
-// ✅ 发送消息
-function sendMsg() {
-  if (!input.value.trim()) return
-  // 用户消息
-  messages.value.push({
-    id: Date.now(),
-    from: 'user',
-    text: input.value,
-  })
-  const userText = input.value
-  input.value = ''
-  // 模拟 AI 回复
-  setTimeout(() => {
-    messages.value.push({
-      id: Date.now() + 1,
-      from: 'ai',
-      text: '收到：' + userText,
+// 创建会话
+async function createSessionIfNeeded() {
+  if (sessionId.value) return sessionId.value
+  if (!characterId) {
+    console.error('缺少 characterId，无法创建会话')
+    return null
+  }
+  try {
+    creatingSession.value = true
+    const base = '/api'
+    const url = `${base}/sessions`
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    const auth = localStorage.getItem('Authorization')
+    if (auth) headers['Authorization'] = auth
+    // debug: show which URL will be requested (dev proxy will rewrite to /api/v1/*)
+    // console.log('createSession request:', url, { characterId, mode: 'academic' })
+    const res = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ characterId, mode: 'academic' }),
     })
-  }, 600)
+    if (!res.ok) throw new Error(`创建会话失败: ${res.status}`)
+    const data = await res.json()
+    sessionId.value = data.id
+    return sessionId.value
+  } catch (err: any) {
+    console.error('createSessionIfNeeded error', err)
+    // 失败时留空，让 sendMsg 使用本地模拟回复
+    return null
+  } finally {
+    creatingSession.value = false
+  }
 }
+
+// ✅ 发送消息到后端会话
+async function sendMsg() {
+  if (!input.value.trim()) return
+  const text = input.value.trim()
+  // 用户消息先添加到本地
+  messages.value.push({ id: Date.now(), from: 'user', text })
+  input.value = ''
+
+  // 确保有 session
+  const sid = await createSessionIfNeeded()
+  if (!sid) {
+    // 如果无法创建 session，使用本地模拟回复作为回退
+    setTimeout(() => {
+      messages.value.push({ id: Date.now() + 1, from: 'ai', text: '（本地回退）收到：' + text })
+    }, 600)
+    return
+  }
+
+  // 发送到后端消息接口
+  try {
+    sendLoading.value = true
+    const base = '/api'
+    const url = `${base}/sessions/${sid}/messages`
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    const auth = localStorage.getItem('Authorization')
+    if (auth) headers['Authorization'] = auth
+    // console.log('sendMsg request:', url, { text, modelName: modelName.value })
+    const res = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ text, modelName: modelName.value }),
+    })
+    if (!res.ok) throw new Error(`发送消息失败: ${res.status}`)
+    // 后端返回一个包含 AI 回复字段的 JSON，例如 { reply: '...' } 或 messages
+    const data = await res.json()
+    // 根据常见返回结构做兼容处理
+    let replyText = ''
+    if (typeof data.reply === 'string') replyText = data.reply
+    else if (data.message && typeof data.message === 'string') replyText = data.message
+    else if (Array.isArray(data.messages) && data.messages.length > 0) {
+      // 找到最后一条 ai 回复
+      const aiMsg = data.messages.reverse().find((m: any) => m.from === 'ai' || m.role === 'assistant' || m.sender === 'ai')
+      replyText = aiMsg ? aiMsg.text || aiMsg.content || JSON.stringify(aiMsg) : ''
+    } else if (data.text) replyText = data.text
+    else replyText = JSON.stringify(data)
+
+    messages.value.push({ id: Date.now() + 2, from: 'ai', text: replyText })
+  } catch (err: any) {
+    console.error('sendMsg error', err)
+    messages.value.push({ id: Date.now() + 3, from: 'ai', text: '（发送失败，本地回退）收到：' + text })
+  } finally {
+    sendLoading.value = false
+  }
+}
+
+// 挂载时尝试创建会话（但不发送消息）
+onMounted(() => {
+  // fire-and-forget 创建 session，降低第一次发送延迟
+  createSessionIfNeeded()
+})
 </script>
 
 <style scoped>
@@ -283,6 +372,23 @@ function sendMsg() {
   position: relative;
   flex: 1;
   display: flex;
+  align-items: center;
+}
+.model-select {
+  height: 44px;
+  min-width: 140px;
+  max-width: 140px;
+  padding: 0 10px;
+  margin-right: 10px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border-color);
+  background: #fff;
+  color: var(--text-color, #111);
+  font-size: 0.95rem;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
   align-items: center;
 }
 .chat-input {
