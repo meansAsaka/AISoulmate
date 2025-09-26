@@ -56,7 +56,7 @@ public class TongyiLlmService implements LlmService {
             // 发送完整响应
             synchronized (webSocketSession) {
                 Map<String, Object> msg = new HashMap<>();
-                msg.put("delta", response);
+                msg.put("reply", response);
                 msg.put("done", true);
                 webSocketSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(msg)));
             }
@@ -103,7 +103,11 @@ public class TongyiLlmService implements LlmService {
         if (result.isEmpty()) {
             result = node.path("output").path("text").asText();
         }
-        return result.isEmpty() ? "通义千问回复：" + text : result;
+        // 返回 JSON 字符串
+        Map<String, Object> msg = new HashMap<>();
+        msg.put("reply", result);
+        msg.put("done", true);
+        return objectMapper.writeValueAsString(msg);
     }
 
     @Override

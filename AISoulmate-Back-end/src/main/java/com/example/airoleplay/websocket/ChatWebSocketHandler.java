@@ -56,7 +56,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 return;
             }
 
-            String modelName = chatSession.get().getModelName();
+            String modelName = chatMessage.getModelName();
             LlmService llmService = llmServiceFactory.getService(modelName);
             
             // 异步处理LLM调用

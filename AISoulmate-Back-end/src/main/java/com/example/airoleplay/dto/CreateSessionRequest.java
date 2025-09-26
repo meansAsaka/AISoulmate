@@ -7,5 +7,4 @@ import lombok.Data;
 public class CreateSessionRequest {
     private String characterId;
     private Session.ChatMode mode = Session.ChatMode.immersive;
-    private String modelName = "tongyi";
 }

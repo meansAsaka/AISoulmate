@@ -24,9 +24,6 @@ public class Session {
     @Enumerated(EnumType.STRING)
     private ChatMode mode = ChatMode.immersive;
 
-    @Column(name = "model_name")
-    private String modelName = "tongyi";
-
     private String summary;
 
     @Column(name = "created_at")
