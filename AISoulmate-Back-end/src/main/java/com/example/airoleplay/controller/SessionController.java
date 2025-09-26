@@ -5,6 +5,8 @@ import com.example.airoleplay.entity.Message;
 import com.example.airoleplay.entity.Session;
 import com.example.airoleplay.service.impl.LlmServiceFactory;
 import com.example.airoleplay.service.impl.SessionService;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -62,10 +64,13 @@ public class SessionController {
 
             // 调用LLM服务生成回复，传入会话信息
             String response = llmServiceFactory.getService(request.get("modelName")).generateResponse(text, session);
-            
-            // 保存AI回复
-            sessionService.saveMessage(id, Message.Role.assistant, response);
-            sessionService.saveMessagesToRedis(id, response);
+
+            // 只保存 reply 字段内容
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode respNode = objectMapper.readTree(response);
+            String reply = respNode.path("reply").asText();
+            sessionService.saveMessage(id, Message.Role.assistant, reply);
+            sessionService.saveMessagesToRedis(id, reply);
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {

@@ -56,7 +56,7 @@ public class DeepSeekLlmService implements LlmService {
             // 发送完整响应
             synchronized (webSocketSession) {
                 Map<String, Object> msg = new HashMap<>();
-                msg.put("delta", response);
+                msg.put("reply", response);
                 msg.put("done", true);
                 webSocketSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(msg)));
             }
@@ -65,41 +65,48 @@ public class DeepSeekLlmService implements LlmService {
             log.error("DeepSeek API调用失败", e);
         }
     }
-    
+
     private String callDeepSeekApi(String text) throws Exception {
         Map<String, Object> request = new HashMap<>();
         request.put("model", "deepseek-chat");
         request.put("messages", List.of(Map.of("role", "user", "content", text)));
         request.put("stream", false);
         request.put("max_tokens", 1024);
-        
+
         WebClient client = WebClient.builder()
             .defaultHeader("Authorization", "Bearer " + apiKey)
             .defaultHeader("Content-Type", "application/json")
             .defaultHeader("Accept", "application/json")
             .build();
-            
+
         String response = client.post()
             .uri("https://api.deepseek.com/chat/completions")
             .bodyValue(request)
             .retrieve()
             .bodyToMono(String.class)
             .block();
-            
+
         log.info("DeepSeek API响应: {}", response);
         JsonNode node = objectMapper.readTree(response);
-        
+
         // 检查是否有错误
         if (node.has("error")) {
             throw new RuntimeException("API调用失败: " + node.path("error").path("message").asText());
         }
-        
+
         JsonNode choices = node.path("choices");
+        String result = "DeepSeek回复：" + text;
         if (choices.isArray() && choices.size() > 0) {
-            String result = choices.get(0).path("message").path("content").asText();
-            return result.isEmpty() ? "DeepSeek回复：" + text : result;
+            String content = choices.get(0).path("message").path("content").asText();
+            if (!content.isEmpty()) {
+                result = content;
+            }
         }
-        return "DeepSeek回复：" + text;
+        // 返回 JSON 字符串
+        Map<String, Object> msg = new HashMap<>();
+        msg.put("reply", result);
+        msg.put("done", true);
+        return objectMapper.writeValueAsString(msg);
     }
     
     @Override
@@ -124,4 +131,3 @@ public class DeepSeekLlmService implements LlmService {
         }
     }
 }
-
