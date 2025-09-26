@@ -24,18 +24,11 @@
       <aside class="sidebar">
         <h1>最近聊天</h1>
         <ul class="recent-list">
-          <li class="recent-item">
-            <img src="../assets/images/哈利波特.png" alt="哈利波特" />
-            <span class="recent-name">哈利波特</span>
+          <li v-for="s in sessions" :key="s.sessionId" class="recent-item" @click="openSession(s)">
+            <img :src="s.avatarUrl" :alt="s.sessionId" />
+            <span class="recent-name">{{ shortMessage(s.latestMessageText) }}</span>
           </li>
-          <li class="recent-item">
-            <img src="../assets/images/苏格拉底.png" alt="苏格拉底" />
-            <span class="recent-name">苏格拉底</span>
-          </li>
-          <li class="recent-item">
-            <img src="../assets/images/诸葛亮.png" alt="诸葛亮" />
-            <span class="recent-name">诸葛亮</span>
-          </li>
+          <li v-if="sessions.length === 0" class="recent-item">暂无最近会话</li>
         </ul>
       </aside>
 
@@ -84,6 +77,39 @@ const roles = ref<Role[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
 
+// 最近会话历史
+type SessionSummary = { sessionId: string; avatarUrl?: string; latestMessageText?: string }
+const sessions = ref<SessionSummary[]>([])
+
+async function loadHistory() {
+  try {
+    const base = '/api'
+    const headers: Record<string, string> = {}
+    const auth = localStorage.getItem('Authorization')
+    if (auth) headers['Authorization'] = auth
+    const res = await fetch(`${base}/sessions/history`, { headers })
+    if (!res.ok) throw new Error(`加载历史会话失败: ${res.status}`)
+    const data = await res.json()
+    if (Array.isArray(data)) {
+      sessions.value = data.map((it: any) => ({ sessionId: it.sessionId, avatarUrl: it.avatarUrl, latestMessageText: it.latestMessageText }))
+    }
+  } catch (err: any) {
+    console.error('loadHistory error', err)
+  }
+}
+
+function openSession(s: SessionSummary) {
+  // 通过 sessionId 打开已存在会话，chat 页面可使用 query.sessionId 恢复会话
+  router.push({ name: 'chat', query: { sessionId: s.sessionId, name: '', avatar: s.avatarUrl || '', tag: '', desc: '' } })
+}
+
+function shortMessage(text?: string | null) {
+  if (!text) return '新会话'
+  const t = String(text)
+  if (t.length <= 5) return t
+  return t.slice(0, 5) + '...'
+}
+
 const parseTags = (tagsStr: string | null) => {
   if (!tagsStr) return ''
   try {
@@ -99,6 +125,8 @@ const parseTags = (tagsStr: string | null) => {
 onMounted(async () => {
   loading.value = true
   error.value = null
+  // 加载最近会话历史
+  loadHistory()
   // 使用相对路径 /api 开发时通过 Vite proxy 转发到后端；如需在生产使用自定义地址，请在代码中替换为 import.meta.env.VITE_API_BASE
   const base = '/api'
   try {
