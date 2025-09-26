@@ -128,11 +128,15 @@ function startVoiceCall() {
 
 // 创建会话
 async function createSessionIfNeeded() {
+  // 如果已有会话ID，直接返回
   if (sessionId.value) return sessionId.value
+  
+  // 如果没有角色ID，无法创建会话
   if (!characterId) {
     console.error('缺少 characterId，无法创建会话')
     return null
   }
+  
   try {
     creatingSession.value = true
     const base = '/api'
@@ -216,9 +220,48 @@ async function sendMsg() {
 }
 
 // 挂载时尝试创建会话（但不发送消息）
-onMounted(() => {
-  // fire-and-forget 创建 session，降低第一次发送延迟
-  createSessionIfNeeded()
+onMounted(async () => {
+  // 优先使用 route.query.sessionId 恢复已有会话
+  const sidFromQuery = (route.query.sessionId as string) || null
+  if (sidFromQuery) {
+    // 如果路由里有 sessionId，直接使用
+    sessionId.value = sidFromQuery
+    // 从会话历史中恢复聊天记录
+    try {
+      const base = '/api'
+      const url = `${base}/sessions/${sidFromQuery}/messages`
+      const headers: Record<string, string> = {}
+      const auth = localStorage.getItem('Authorization')
+      if (auth) headers['Authorization'] = auth
+      const res = await fetch(url, { headers })
+      if (res.ok) {
+        const data = await res.json()
+        if (Array.isArray(data)) {
+          // 根据你提供的历史消息格式进行处理
+          messages.value = data.map((msg: any) => ({
+            id: msg.id || Date.now() + Math.random(),
+            from: msg.role === 'user' ? 'user' : 'ai', // 根据role字段判断是用户还是AI
+            text: msg.text // 直接使用text字段
+          }))
+          
+          // 如果没有消息记录，保留默认欢迎消息
+          if (messages.value.length === 0) {
+            messages.value = [{
+              id: Date.now(),
+              from: 'ai',
+              text: `你好，我是${name}`
+            }]
+          }
+        }
+      }
+    } catch (err) {
+      console.error('加载历史消息失败', err)
+      // 加载失败时保持默认欢迎消息
+    }
+  } else {
+    // fire-and-forget 创建 session，降低第一次发送延迟
+    createSessionIfNeeded()
+  }
 })
 </script>
 
