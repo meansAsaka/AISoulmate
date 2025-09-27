@@ -15,16 +15,18 @@
           <!-- 邮箱 -->
           <div class="input-group">
             <span class="input-icon">
-              <svg
-                width="20"
-                height="20"
-                fill="none"
-                stroke="#888"
-                stroke-width="2"
-                viewBox="0 0 24 24"
-              >
-                <path d="M4 4h16v16H4z" stroke="none" />
-                <path d="M4 4l8 6 8-6" />
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <rect
+                  x="3"
+                  y="6"
+                  width="18"
+                  height="12"
+                  rx="3"
+                  stroke="#7c3aed"
+                  stroke-width="2"
+                  fill="#fff"
+                />
+                <path d="M3 6l9 7 9-7" stroke="#38bdf8" stroke-width="2" fill="none" />
               </svg>
             </span>
             <input type="email" v-model="email" placeholder="邮箱（唯一）" required />
@@ -33,17 +35,19 @@
           <!-- 密码 -->
           <div class="input-group">
             <span class="input-icon">
-              <svg
-                width="20"
-                height="20"
-                fill="none"
-                stroke="#888"
-                stroke-width="2"
-                viewBox="0 0 24 24"
-              >
-                <rect x="6" y="10" width="12" height="8" rx="2" />
-                <path d="M12 14v2" />
-                <circle cx="12" cy="12" r="1" />
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <rect
+                  x="6"
+                  y="10"
+                  width="12"
+                  height="8"
+                  rx="2"
+                  stroke="#7c3aed"
+                  stroke-width="2"
+                  fill="#fff"
+                />
+                <path d="M12 14v2" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" />
+                <circle cx="12" cy="12" r="1" stroke="#7c3aed" stroke-width="2" fill="#fff" />
               </svg>
             </span>
             <input type="password" v-model="password" placeholder="密码" required />
@@ -52,17 +56,19 @@
           <!-- 确认密码 -->
           <div class="input-group">
             <span class="input-icon">
-              <svg
-                width="20"
-                height="20"
-                fill="none"
-                stroke="#888"
-                stroke-width="2"
-                viewBox="0 0 24 24"
-              >
-                <rect x="6" y="10" width="12" height="8" rx="2" />
-                <path d="M12 14v2" />
-                <circle cx="12" cy="12" r="1" />
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <rect
+                  x="6"
+                  y="10"
+                  width="12"
+                  height="8"
+                  rx="2"
+                  stroke="#7c3aed"
+                  stroke-width="2"
+                  fill="#fff"
+                />
+                <path d="M12 14v2" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" />
+                <circle cx="12" cy="12" r="1" stroke="#7c3aed" stroke-width="2" fill="#fff" />
               </svg>
             </span>
             <input type="password" v-model="confirmPassword" placeholder="确认密码" required />
@@ -120,6 +126,10 @@
         <div class="register-tip">已有账号？<a href="/login">去登录</a></div>
       </div>
     </section>
+
+    <div v-if="showSuccess" class="register-success-modal">
+      <div class="register-success-content">注册成功！</div>
+    </div>
   </div>
 </template>
 
@@ -136,6 +146,7 @@ const router = useRouter()
 
 const avatarUrl = ref<string | null>(null)
 const avatarInputRef = ref<HTMLInputElement | null>(null)
+const showSuccess = ref(false)
 
 const triggerAvatarInput = () => {
   if (avatarInputRef.value) {
@@ -166,7 +177,6 @@ const handleSubmit = async () => {
     alert('两次输入的密码不一致')
     return
   }
-
   if (email.value && password.value && nickname.value) {
     try {
       const res = await fetch('/api/user/register', {
@@ -176,13 +186,16 @@ const handleSubmit = async () => {
           email: email.value,
           password: password.value,
           nickname: nickname.value,
-          avatar: avatarUrl.value || '', // base64字符串或空
+          avatar: avatarUrl.value || '',
         }),
       })
       const data = await res.json()
       if (data !== null) {
-        alert('注册成功')
-        router.push('/login')
+        showSuccess.value = true
+        setTimeout(() => {
+          showSuccess.value = false
+          router.push('/login')
+        }, 1000)
       } else {
         alert(data.message || '注册失败，邮箱被使用')
       }
@@ -461,5 +474,65 @@ const handleSubmit = async () => {
   object-fit: cover;
   border-radius: 50%;
   border: none;
+}
+.register-success-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(124, 77, 255, 0.08);
+  z-index: 9999;
+  animation: modalFadeIn 0.3s;
+}
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.register-success-content {
+  background: linear-gradient(135deg, #aee2ff 0%, #7c3aed 100%);
+  color: #fff;
+  font-size: 2rem;
+  font-weight: bold;
+  padding: 36px 60px;
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(60, 80, 120, 0.18);
+  text-align: center;
+  letter-spacing: 2px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  animation: contentPop 0.4s;
+}
+@keyframes contentPop {
+  0% {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.register-success-content::before {
+  content: '';
+  display: inline-block;
+  width: 38px;
+  height: 38px;
+  margin-right: 10px;
+  background: url('data:image/svg+xml;utf8,<svg width="38" height="38" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="19" cy="19" r="19" fill="%237c3aed"/><path d="M11 20l5 5 11-11" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>')
+    no-repeat center/contain;
 }
 </style>

@@ -13,9 +13,50 @@
 
       <!-- 右侧按钮组 -->
       <div class="header-buttons">
-        <button class="theme-btn" @click="toggleTheme">切换主题</button>
-        <button class="auth-btn" @click="goLogin">登录</button>
-        <button class="auth-btn" @click="goRegister">注册</button>
+        <!-- 主题切换滑块开关 -->
+        <div class="theme-switch" @click="toggleTheme">
+          <div :class="['switch-track', isDarkTheme ? 'switch-on' : 'switch-off']">
+            <span class="switch-icon left">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="4.5" fill="#FFD600" />
+                <g stroke="#FFD600" stroke-width="1.2">
+                  <line x1="8" y1="1.5" x2="8" y2="4" />
+                  <line x1="8" y1="12" x2="8" y2="14.5" />
+                  <line x1="1.5" y1="8" x2="4" y2="8" />
+                  <line x1="12" y1="8" x2="14.5" y2="8" />
+                  <line x1="3.2" y1="3.2" x2="5" y2="5" />
+                  <line x1="11" y1="11" x2="12.8" y2="12.8" />
+                  <line x1="3.2" y1="12.8" x2="5" y2="11" />
+                  <line x1="11" y1="5" x2="12.8" y2="3.2" />
+                </g>
+              </svg>
+            </span>
+            <span class="switch-icon right">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M13 8.5A6 6 0 0 1 8.5 3a4.5 4.5 0 1 0 4.5 5.5z" fill="#7C4DFF" />
+                <circle cx="11.5" cy="11.5" r="0.7" fill="#B39DDB" />
+              </svg>
+            </span>
+            <div :class="['switch-knob', isDarkTheme ? 'knob-right' : 'knob-left']"></div>
+          </div>
+        </div>
+        <!-- 用户头像按钮 -->
+        <div class="user-avatar" @click="handleAvatarClick">
+          <div class="avatar-bg">
+            <img
+              v-if="userAvatar && !avatarError"
+              :src="userAvatar"
+              alt="User"
+              @error="avatarError = true"
+            />
+            <div v-else class="add-icon">+</div>
+          </div>
+          <div v-if="showDropdown" class="avatar-dropdown">
+            <ul>
+              <li @click="handleLogout">退出登录</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -35,7 +76,7 @@
       <main class="main">
         <h1>热门角色</h1>
         <div class="image-row">
-          <!-- ✅ 使用 v-for 渲染角色卡片 -->
+          <!-- 使用 v-for 渲染角色卡片 -->
           <div v-for="role in roles" :key="role.name" class="image-card" @click="goChat(role)">
             <img :src="role.avatar" :alt="role.name" />
             <div class="image-info">
@@ -55,24 +96,64 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
 
 const router = useRouter()
 
+const isDarkTheme = ref(false)
+
 const toggleTheme = () => {
-  document.body.classList.toggle('dark-theme')
+  isDarkTheme.value = !isDarkTheme.value
+  if (isDarkTheme.value) {
+    document.body.classList.add('dark-theme')
+  } else {
+    document.body.classList.remove('dark-theme')
+  }
 }
 
-const goLogin = () => {
-  router.push({ name: 'login' })
+const userAvatar = ref<string | null>(null)
+const avatarError = ref(false)
+const showDropdown = ref(false)
+
+const handleAvatarClick = () => {
+  if (!userAvatar.value || avatarError.value) {
+    router.push({ name: 'login' })
+  } else {
+    showDropdown.value = !showDropdown.value
+  }
 }
 
-const goRegister = () => {
-  router.push({ name: 'register' })
+const handleLogout = () => {
+  localStorage.removeItem('Authorization')
+  localStorage.removeItem('UserAvatar')
+  localStorage.removeItem('token')
+  userAvatar.value = null
+  showDropdown.value = false
 }
 
-import { ref, onMounted } from 'vue'
+onMounted(() => {
+  const auth = localStorage.getItem('Authorization')
+  if (auth) {
+    const currentUserStr = localStorage.getItem('currentUser')
+    if (currentUserStr) {
+      const currentUser = JSON.parse(currentUserStr)
+      userAvatar.value = currentUser.avatar || null
+    } else {
+      userAvatar.value = null
+    }
+  } else {
+    userAvatar.value = null
+  }
+})
 
-type Role = { id: string; name: string; avatar: string; tag: string; desc: string; popularity?: number }
+type Role = {
+  id: string
+  name: string
+  avatar: string
+  tag: string
+  desc: string
+  popularity?: number
+}
 const roles = ref<Role[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
@@ -91,7 +172,11 @@ async function loadHistory() {
     if (!res.ok) throw new Error(`加载历史会话失败: ${res.status}`)
     const data = await res.json()
     if (Array.isArray(data)) {
-      sessions.value = data.map((it: any) => ({ sessionId: it.sessionId, avatarUrl: it.avatarUrl, latestMessageText: it.latestMessageText }))
+      sessions.value = data.map((it: any) => ({
+        sessionId: it.sessionId,
+        avatarUrl: it.avatarUrl,
+        latestMessageText: it.latestMessageText,
+      }))
     }
   } catch (err: any) {
     console.error('loadHistory error', err)
@@ -100,7 +185,10 @@ async function loadHistory() {
 
 function openSession(s: SessionSummary) {
   // 通过 sessionId 打开已存在会话，chat 页面可使用 query.sessionId 恢复会话
-  router.push({ name: 'chat', query: { sessionId: s.sessionId, name: '', avatar: s.avatarUrl || '', tag: '', desc: '' } })
+  router.push({
+    name: 'chat',
+    query: { sessionId: s.sessionId, name: '', avatar: s.avatarUrl || '', tag: '', desc: '' },
+  })
 }
 
 function shortMessage(text?: string | null) {
@@ -118,7 +206,11 @@ const parseTags = (tagsStr: string | null) => {
     return ''
   } catch (e) {
     // 如果 tags 不是 JSON 字符串，尝试简单分隔
-    return String(tagsStr).replace(/\[|\]|\"/g, '')?.split(',')[0] || ''
+    return (
+      String(tagsStr)
+        .replace(/\[|\]|\"/g, '')
+        ?.split(',')[0] || ''
+    )
   }
 }
 
@@ -289,20 +381,57 @@ const goChat = (role: Role) => {
   font-weight: bold;
 }
 
-/* 登录注册按钮 */
-.auth-btn {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 8px;
+.user-avatar {
+  width: 55px;
+  height: 55px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #aee2ff 0%, #f7b2ff 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  background-color: rgba(24, 144, 255, 0.1);
-  color: var(--text-color);
-  font-weight: bold;
-  transition: background 0.2s;
+  overflow: visible;
+  box-shadow: 0 4px 16px rgba(24, 144, 255, 0.12);
+  border: none;
+  position: relative;
+  transition:
+    box-shadow 0.2s,
+    background 0.2s;
 }
-
-.auth-btn:hover {
-  background-color: rgba(24, 144, 255, 0.25);
+.user-avatar:hover {
+  box-shadow: 0 8px 24px rgba(24, 144, 255, 0.18);
+  background: linear-gradient(135deg, #f7b2ff 0%, #aee2ff 100%);
+}
+.avatar-bg {
+  width: 51px;
+  height: 51px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.08);
+  border: 2px solid rgba(24, 144, 255, 0.18);
+  overflow: hidden;
+}
+.user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.12);
+}
+.user-avatar img:hover {
+  transform: scale(1.08);
+}
+.add-icon {
+  font-size: 28px;
+  color: #1890ff;
+  font-weight: bold;
+  background: none;
+  border-radius: 50%;
+  padding: 0;
 }
 
 /* 内容区域 */
@@ -432,5 +561,111 @@ const goChat = (role: Role) => {
   border: 2px solid var(--border-color);
   border-radius: 12px;
   transition: background 0.3s;
+}
+
+.avatar-dropdown {
+  position: absolute;
+  top: 56px;
+  right: 0;
+  min-width: 120px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(24, 144, 255, 0.12);
+  border: 1px solid #e0e0e0;
+  z-index: 100;
+  padding: 8px 0;
+  animation: dropdownFade 0.2s;
+}
+.avatar-dropdown ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.avatar-dropdown li {
+  padding: 8px 20px;
+  cursor: pointer;
+  color: #1890ff;
+  font-size: 15px;
+  transition: background 0.2s;
+}
+.avatar-dropdown li:hover {
+  background: #f0f7ff;
+}
+@keyframes dropdownFade {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 主题切换开关 */
+.theme-switch {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  margin-right: 10px;
+}
+.switch-track {
+  position: relative;
+  width: 70px;
+  height: 32px;
+  background: #e0e0e0;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  transition: background 0.3s;
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.1);
+}
+.switch-on {
+  background: linear-gradient(90deg, #aee2ff 0%, #f7b2ff 100%);
+  box-shadow: 0 4px 16px rgba(124, 77, 255, 0.1);
+}
+.switch-off {
+  background: #e0e0e0;
+}
+.switch-icon {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  pointer-events: none;
+}
+.switch-icon.left {
+  left: 6px;
+}
+.switch-icon.right {
+  right: 6px;
+}
+.switch-knob {
+  position: absolute;
+  top: 3px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.12);
+  transition:
+    left 0.3s,
+    background 0.3s;
+  z-index: 3;
+  border: 2px solid #e0e0e0;
+}
+.knob-right {
+  left: 41px;
+  background: #7c4dff;
+  border-color: #b39ddb;
+}
+.knob-left {
+  left: 3px;
+  background: #ffd600;
+  border-color: #ffd600;
+}
+.theme-switch:active .switch-knob {
+  box-shadow: 0 4px 16px rgba(24, 144, 255, 0.18);
 }
 </style>

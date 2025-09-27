@@ -38,20 +38,36 @@
           <img
             v-if="msg.from === 'user'"
             class="bubble-avatar user-avatar"
-            src="/Logo.ico"
-            alt="我"
+            :src="userAvatar"
+            :alt="userName"
           />
         </div>
       </div>
 
       <form class="chat-input-bar" @submit.prevent="sendMsg">
         <div class="input-group-chat">
-          <select v-model="modelName" class="model-select" :disabled="creatingSession || sendLoading" aria-label="选择模型">
+          <select
+            v-model="modelName"
+            class="model-select"
+            :disabled="creatingSession || sendLoading"
+            aria-label="选择模型"
+          >
             <option value="tongyi">通义</option>
             <option value="deepseek">DeepSeek</option>
           </select>
-          <input v-model="input" class="chat-input" type="text" :placeholder="`和${name}聊天...`" :disabled="creatingSession || sendLoading" />
-          <button class="send-btn" type="submit" :title="sendLoading ? '发送中...' : '发送'" :disabled="creatingSession || sendLoading">
+          <input
+            v-model="input"
+            class="chat-input"
+            type="text"
+            :placeholder="`和${name}聊天...`"
+            :disabled="creatingSession || sendLoading"
+          />
+          <button
+            class="send-btn"
+            type="submit"
+            :title="sendLoading ? '发送中...' : '发送'"
+            :disabled="creatingSession || sendLoading"
+          >
             <svg v-if="!sendLoading" width="38" height="38" viewBox="0 0 1024 1024" fill="none">
               <circle cx="512" cy="512" r="512" fill="url(#planeGradient)" />
               <path d="M256 512l512-192-192 512-64-192-192-64z" fill="#fff" />
@@ -70,7 +86,15 @@
               </defs>
             </svg>
             <svg v-else width="22" height="22" viewBox="0 0 50 50">
-              <circle cx="25" cy="25" r="20" stroke="#ccc" stroke-width="4" fill="none" stroke-linecap="round" />
+              <circle
+                cx="25"
+                cy="25"
+                r="20"
+                stroke="#ccc"
+                stroke-width="4"
+                fill="none"
+                stroke-linecap="round"
+              />
             </svg>
           </button>
         </div>
@@ -128,15 +152,13 @@ function startVoiceCall() {
 
 // 创建会话
 async function createSessionIfNeeded() {
-  // 如果已有会话ID，直接返回
   if (sessionId.value) return sessionId.value
-  
-  // 如果没有角色ID，无法创建会话
+
   if (!characterId) {
     console.error('缺少 characterId，无法创建会话')
     return null
   }
-  
+
   try {
     creatingSession.value = true
     const base = '/api'
@@ -205,7 +227,9 @@ async function sendMsg() {
     else if (data.message && typeof data.message === 'string') replyText = data.message
     else if (Array.isArray(data.messages) && data.messages.length > 0) {
       // 找到最后一条 ai 回复
-      const aiMsg = data.messages.reverse().find((m: any) => m.from === 'ai' || m.role === 'assistant' || m.sender === 'ai')
+      const aiMsg = data.messages
+        .reverse()
+        .find((m: any) => m.from === 'ai' || m.role === 'assistant' || m.sender === 'ai')
       replyText = aiMsg ? aiMsg.text || aiMsg.content || JSON.stringify(aiMsg) : ''
     } else if (data.text) replyText = data.text
     else replyText = JSON.stringify(data)
@@ -213,10 +237,26 @@ async function sendMsg() {
     messages.value.push({ id: Date.now() + 2, from: 'ai', text: replyText })
   } catch (err: any) {
     console.error('sendMsg error', err)
-    messages.value.push({ id: Date.now() + 3, from: 'ai', text: '（发送失败，本地回退）收到：' + text })
+    messages.value.push({
+      id: Date.now() + 3,
+      from: 'ai',
+      text: '（发送失败，本地回退）收到：' + text,
+    })
   } finally {
     sendLoading.value = false
   }
+}
+
+// 用户信息
+const currentUserStr = localStorage.getItem('currentUser')
+let userAvatar = '/Logo.ico'
+let userName = '我'
+if (currentUserStr) {
+  try {
+    const currentUser = JSON.parse(currentUserStr)
+    userAvatar = currentUser.avatar || '/Logo.ico'
+    userName = currentUser.name || '我'
+  } catch {}
 }
 
 // 挂载时尝试创建会话（但不发送消息）
@@ -241,25 +281,25 @@ onMounted(async () => {
           messages.value = data.map((msg: any) => ({
             id: msg.id || Date.now() + Math.random(),
             from: msg.role === 'user' ? 'user' : 'ai', // 根据role字段判断是用户还是AI
-            text: msg.text // 直接使用text字段
+            text: msg.text, // 直接使用text字段
           }))
-          
+
           // 如果没有消息记录，保留默认欢迎消息
           if (messages.value.length === 0) {
-            messages.value = [{
-              id: Date.now(),
-              from: 'ai',
-              text: `你好，我是${name}`
-            }]
+            messages.value = [
+              {
+                id: Date.now(),
+                from: 'ai',
+                text: `你好，我是${name}`,
+              },
+            ]
           }
         }
       }
     } catch (err) {
       console.error('加载历史消息失败', err)
-      // 加载失败时保持默认欢迎消息
     }
   } else {
-    // fire-and-forget 创建 session，降低第一次发送延迟
     createSessionIfNeeded()
   }
 })
@@ -423,16 +463,35 @@ onMounted(async () => {
   max-width: 140px;
   padding: 0 10px;
   margin-right: 10px;
-  border-radius: 10px;
-  border: 1.5px solid var(--border-color);
-  background: #fff;
-  color: var(--text-color, #111);
-  font-size: 0.95rem;
+  border-radius: 12px;
+  border: 2px solid #38bdf8;
+  background: linear-gradient(90deg, #e0f7fa 0%, #e0e7ff 100%);
+  color: #1890ff;
+  font-size: 1.08rem;
+  font-weight: bold;
   outline: none;
   appearance: none;
   -webkit-appearance: none;
   display: inline-flex;
   align-items: center;
+  box-shadow: 0 2px 8px rgba(60, 80, 120, 0.08);
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s,
+    background 0.2s;
+}
+.model-select:focus {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 2px #c7d2fe;
+  background: linear-gradient(90deg, #e0e7ff 0%, #e0f7fa 100%);
+}
+.model-select option {
+  background: #fff;
+  color: #1890ff;
+  font-size: 1.05rem;
+  font-weight: bold;
+  border-radius: 8px;
+  padding: 8px 0;
 }
 .chat-input {
   flex: 1;

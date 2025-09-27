@@ -14,20 +14,69 @@
         <p class="subtitle">欢迎使用AISoulmate</p>
 
         <form class="form" @submit="handleSubmit">
-          <input v-model="email" class="input" type="email" placeholder="请输入邮箱" required />
-          <input
-            v-model="password"
-            class="input"
-            type="password"
-            placeholder="请输入密码"
-            required
-          />
+          <!-- 邮箱输入框及图标 -->
+          <div class="input-icon-group">
+            <span class="input-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <rect
+                  x="3"
+                  y="6"
+                  width="18"
+                  height="12"
+                  rx="3"
+                  stroke="#7c3aed"
+                  stroke-width="2"
+                  fill="#fff"
+                />
+                <path d="M3 6l9 7 9-7" stroke="#38bdf8" stroke-width="2" fill="none" />
+              </svg>
+            </span>
+            <input type="email" class="login-input" placeholder="请输入邮箱" v-model="email" />
+          </div>
+          <!-- 密码输入框及图标 -->
+          <div class="input-icon-group">
+            <span class="input-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <rect
+                  x="5"
+                  y="11"
+                  width="14"
+                  height="8"
+                  rx="2"
+                  stroke="#7c3aed"
+                  stroke-width="2"
+                  fill="#fff"
+                />
+                <path d="M12 15v2" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" />
+                <rect
+                  x="8"
+                  y="7"
+                  width="8"
+                  height="6"
+                  rx="4"
+                  stroke="#7c3aed"
+                  stroke-width="2"
+                  fill="#fff"
+                />
+              </svg>
+            </span>
+            <input
+              type="password"
+              class="login-input"
+              placeholder="请输入密码"
+              v-model="password"
+            />
+          </div>
           <button type="submit" class="btn primary">登 录</button>
         </form>
 
         <div class="footer-meta">没有账号？<a class="login-tip-link" href="/register">注册</a></div>
       </div>
     </section>
+
+    <div v-if="showSuccess" class="login-success-modal">
+      <div class="login-success-content">登录成功！</div>
+    </div>
   </div>
 </template>
 
@@ -40,17 +89,18 @@ const router = useRouter()
 // 使用 email 字段与后端接口契合
 const email = ref('')
 const password = ref('')
+const showSuccess = ref(false)
 
 const handleSubmit = async (e: Event) => {
   e.preventDefault()
 
   try {
-  const resp = await fetch('/api/user/login', {
+    const resp = await fetch('/api/user/login', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ email: email.value, password: password.value })
+      body: JSON.stringify({ email: email.value, password: password.value }),
     })
 
     if (!resp.ok) {
@@ -66,9 +116,20 @@ const handleSubmit = async (e: Event) => {
       // 按后端约定以 Bearer 前缀存储
       localStorage.setItem('Authorization', 'Bearer ' + data.token)
       // 可选：保存用户信息
-      localStorage.setItem('currentUser', JSON.stringify({ id: data.id, email: data.email, nickname: data.nickname, avatar: data.avatar }))
-      alert('登录成功')
-      router.push({ name: 'home' })
+      localStorage.setItem(
+        'currentUser',
+        JSON.stringify({
+          id: data.id,
+          email: data.email,
+          nickname: data.nickname,
+          avatar: data.avatar,
+        }),
+      )
+      showSuccess.value = true
+      setTimeout(() => {
+        showSuccess.value = false
+        router.push({ name: 'home' })
+      }, 1000)
     } else {
       alert('登录失败: 未返回 token')
     }
@@ -179,6 +240,38 @@ const handleSubmit = async (e: Event) => {
   gap: 12px;
 }
 
+.input-icon-group {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(60, 80, 120, 0.08);
+  border: 1.5px solid #e0e0e0;
+  margin-bottom: 18px;
+  padding: 0 12px;
+  height: 54px;
+}
+.input-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+  width: 32px;
+  height: 32px;
+}
+.login-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 1.15rem;
+  color: #333;
+  padding: 8px 0;
+}
+.login-input::placeholder {
+  color: #b0b8c7;
+}
+
 .input {
   height: 44px;
   padding: 0 14px 0 42px; /* 预留左侧图标空间 */
@@ -257,6 +350,67 @@ const handleSubmit = async (e: Event) => {
 }
 .login-tip-link:hover {
   color: #7c3aed;
+}
+
+.login-success-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(56, 189, 248, 0.08);
+  z-index: 9999;
+  animation: modalFadeIn 0.3s;
+}
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.login-success-content {
+  background: linear-gradient(135deg, #aee2ff 0%, #f7b2ff 100%);
+  color: #fff;
+  font-size: 2rem;
+  font-weight: bold;
+  padding: 36px 60px;
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(60, 80, 120, 0.18);
+  text-align: center;
+  letter-spacing: 2px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  animation: contentPop 0.4s;
+}
+@keyframes contentPop {
+  0% {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.login-success-content::before {
+  content: '';
+  display: inline-block;
+  width: 38px;
+  height: 38px;
+  margin-right: 10px;
+  background: url('data:image/svg+xml;utf8,<svg width="38" height="38" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="19" cy="19" r="19" fill="%2338bdf8"/><path d="M11 20l5 5 11-11" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>')
+    no-repeat center/contain;
 }
 
 @keyframes card-in {
