@@ -7,10 +7,12 @@
         <div class="register-bubble big"></div>
       </div>
     </section>
+
     <section class="register-panel">
       <div class="register-card">
         <h2 class="register-title">创建新账号</h2>
         <form @submit.prevent="handleSubmit">
+          <!-- 邮箱 -->
           <div class="input-group">
             <span class="input-icon">
               <svg
@@ -21,12 +23,14 @@
                 stroke-width="2"
                 viewBox="0 0 24 24"
               >
-                <circle cx="12" cy="8" r="4" />
-                <path d="M4 20c0-4 8-4 8-4s8 0 8 4" />
+                <path d="M4 4h16v16H4z" stroke="none" />
+                <path d="M4 4l8 6 8-6" />
               </svg>
             </span>
-            <input type="text" v-model="username" placeholder="用户名" required />
+            <input type="email" v-model="email" placeholder="邮箱（唯一）" required />
           </div>
+
+          <!-- 密码 -->
           <div class="input-group">
             <span class="input-icon">
               <svg
@@ -44,6 +48,73 @@
             </span>
             <input type="password" v-model="password" placeholder="密码" required />
           </div>
+
+          <!-- 确认密码 -->
+          <div class="input-group">
+            <span class="input-icon">
+              <svg
+                width="20"
+                height="20"
+                fill="none"
+                stroke="#888"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+              >
+                <rect x="6" y="10" width="12" height="8" rx="2" />
+                <path d="M12 14v2" />
+                <circle cx="12" cy="12" r="1" />
+              </svg>
+            </span>
+            <input type="password" v-model="confirmPassword" placeholder="确认密码" required />
+          </div>
+
+          <!-- 昵称 -->
+          <div class="input-group">
+            <span class="input-icon">
+              <svg
+                width="20"
+                height="20"
+                fill="none"
+                stroke="#888"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+              >
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 20c0-4 8-4 8-4s8 0 8 4" />
+              </svg>
+            </span>
+            <input type="text" v-model="nickname" placeholder="用户名 (昵称)" required />
+          </div>
+
+          <!-- 上传头像 -->
+          <div class="input-group avatar-upload-group">
+            <input
+              type="file"
+              accept="image/*"
+              @change="handleAvatarUpload"
+              style="display: none"
+              ref="avatarInputRef"
+            />
+            <div class="avatar-upload-box" @click="triggerAvatarInput">
+              <template v-if="avatarUrl">
+                <img :src="avatarUrl" alt="头像预览" class="avatar-preview" />
+              </template>
+              <template v-else>
+                <span class="avatar-plus">
+                  <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+                    <circle cx="18" cy="18" r="16" fill="#e0e7ff" />
+                    <path
+                      d="M18 12v12M12 18h12"
+                      stroke="#7c3aed"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </span>
+              </template>
+            </div>
+          </div>
+
           <button type="submit" class="register-btn">注册</button>
         </form>
         <div class="register-tip">已有账号？<a href="/login">去登录</a></div>
@@ -54,21 +125,78 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 
-const username = ref('')
+const email = ref('')
 const password = ref('')
+const confirmPassword = ref('')
+const nickname = ref('')
+const avatarFile = ref<File | null>(null)
+const router = useRouter()
 
-const handleSubmit = () => {
-  if (username.value === '123' && password.value === '123') {
-    alert('注册成功')
+const avatarUrl = ref<string | null>(null)
+const avatarInputRef = ref<HTMLInputElement | null>(null)
+
+const triggerAvatarInput = () => {
+  if (avatarInputRef.value) {
+    avatarInputRef.value.click()
   } else {
-    alert('注册失败')
+    // 兼容 label input
+    const input = document.querySelector(
+      '.avatar-upload-label input[type=\"file\"]',
+    ) as HTMLInputElement
+    input?.click()
+  }
+}
+
+const handleAvatarUpload = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  if (target.files && target.files[0]) {
+    avatarFile.value = target.files[0]
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      avatarUrl.value = e.target?.result as string
+    }
+    reader.readAsDataURL(target.files[0])
+  }
+}
+
+const handleSubmit = async () => {
+  if (password.value !== confirmPassword.value) {
+    alert('两次输入的密码不一致')
+    return
+  }
+
+  if (email.value && password.value && nickname.value) {
+    try {
+      const res = await fetch('/api/user/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.value,
+          password: password.value,
+          nickname: nickname.value,
+          avatar: avatarUrl.value || '', // base64字符串或空
+        }),
+      })
+      const data = await res.json()
+      if (data !== null) {
+        alert('注册成功')
+        router.push('/login')
+      } else {
+        alert(data.message || '注册失败，邮箱被使用')
+      }
+    } catch (e) {
+      alert('网络错误或服务器异常')
+    }
+  } else {
+    alert('请完整填写注册信息')
   }
 }
 </script>
 
 <style scoped>
-/* 两栏布局 */
+/* 保留原有样式，仅复用，无需修改 */
 .register-layout {
   height: 100dvh;
   display: grid;
@@ -131,15 +259,13 @@ const handleSubmit = () => {
   align-items: center;
   justify-content: center;
 }
-
-/* 卡片样式 */
 .register-card {
   background: #fff;
   box-shadow: 0 4px 32px rgba(60, 80, 120, 0.12);
   border-radius: 18px;
   padding: 40px 32px 32px 32px;
   min-width: 340px;
-  max-width: 380px;
+  max-width: 480px;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -236,5 +362,104 @@ const handleSubmit = () => {
     min-width: unset;
     max-width: 98vw;
   }
+}
+
+/* 表单美化增强 */
+.input-group {
+  margin-bottom: 10px;
+  transition: box-shadow 0.2s;
+}
+
+.input-group input {
+  border-radius: 16px;
+  background: linear-gradient(90deg, #f3f8ff 0%, #f8faff 100%);
+  border: 1.5px solid #e0e7ff;
+  box-shadow: 0 2px 12px rgba(120, 172, 255, 0.08);
+  font-size: 1.08rem;
+  padding: 12px 16px 12px 44px;
+  transition:
+    border-color 0.25s,
+    box-shadow 0.25s,
+    background 0.25s;
+}
+
+.input-group input:focus {
+  border-color: #38bdf8;
+  background: linear-gradient(90deg, #e0f2fe 0%, #f3f8ff 100%);
+  box-shadow: 0 0 0 3px #bae6fd;
+}
+
+.input-group input:hover {
+  border-color: #7c3aed;
+  background: linear-gradient(90deg, #ede9fe 0%, #f3f8ff 100%);
+}
+
+.input-icon svg {
+  stroke: #38bdf8;
+  transition: stroke 0.2s;
+}
+
+.input-group input:focus + .input-icon svg,
+.input-group input:hover + .input-icon svg {
+  stroke: #7c3aed;
+}
+
+.input-group label {
+  font-weight: 500;
+  color: #3a4a6b;
+  letter-spacing: 0.5px;
+}
+
+.input-group input[type='file'] {
+  padding-left: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+}
+
+@media (max-width: 500px) {
+  .input-group input {
+    font-size: 1rem;
+    padding: 10px 12px 10px 38px;
+  }
+}
+.avatar-upload-group {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 18px;
+}
+.avatar-upload-box {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f3f8ff 0%, #e0e7ff 100%);
+  box-shadow: 0 2px 12px rgba(120, 172, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition:
+    box-shadow 0.2s,
+    border 0.2s;
+  border: 2px dashed #c7d2fe;
+  margin-right: 16px;
+  overflow: hidden;
+}
+.avatar-upload-box:hover {
+  box-shadow: 0 0 0 4px #bae6fd;
+  border-color: #7c3aed;
+}
+.avatar-plus {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.avatar-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  border: none;
 }
 </style>

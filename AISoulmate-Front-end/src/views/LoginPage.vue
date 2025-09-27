@@ -14,7 +14,7 @@
         <p class="subtitle">欢迎使用AISoulmate</p>
 
         <form class="form" @submit="handleSubmit">
-          <input v-model="username" class="input" type="text" placeholder="请输入用户名" required />
+          <input v-model="email" class="input" type="email" placeholder="请输入邮箱" required />
           <input
             v-model="password"
             class="input"
@@ -37,17 +37,44 @@ import { useRouter } from 'vue-router'
 
 const router = useRouter()
 
-const username = ref('123')
-const password = ref('123')
+// 使用 email 字段与后端接口契合
+const email = ref('')
+const password = ref('')
 
-const handleSubmit = (e: Event) => {
+const handleSubmit = async (e: Event) => {
   e.preventDefault()
-  if (username.value === '123' && password.value === '123') {
-    alert('登录成功')
-    router.push({ name: 'home' })
-  } else {
-    alert('登录失败')
-    router.push({ name: 'login' })
+
+  try {
+  const resp = await fetch('/api/user/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email: email.value, password: password.value })
+    })
+
+    if (!resp.ok) {
+      const text = await resp.text()
+      // 后端可能返回非 JSON 错误信息
+      alert('登录失败: ' + (text || resp.statusText))
+      return
+    }
+
+    const data = await resp.json()
+
+    if (data && data.token) {
+      // 按后端约定以 Bearer 前缀存储
+      localStorage.setItem('Authorization', 'Bearer ' + data.token)
+      // 可选：保存用户信息
+      localStorage.setItem('currentUser', JSON.stringify({ id: data.id, email: data.email, nickname: data.nickname, avatar: data.avatar }))
+      alert('登录成功')
+      router.push({ name: 'home' })
+    } else {
+      alert('登录失败: 未返回 token')
+    }
+  } catch (err: any) {
+    console.error('login error', err)
+    alert('登录出错: ' + (err?.message || err))
   }
 }
 </script>
