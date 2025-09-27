@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -22,6 +24,8 @@ public class SessionService {
     private final SessionRepository sessionRepository;
     private final MessageRepository messageRepository;
     private final RedisTemplate<String, String> redisTemplate;
+
+    private static final org.slf4j.Logger log = LoggerFactory.getLogger(SessionService.class);
 
     public Session createSession(String userId, CreateSessionRequest request) {
         Session session = new Session();
@@ -56,32 +60,41 @@ public class SessionService {
      * 将历史消息存入Redis，过期时间5分钟
      */
     public void saveMessagesToRedis(String sessionId, String text) {
-        String counterKey = "session:messages:counter:" + sessionId;
-        Long messageIndex = redisTemplate.opsForValue().increment(counterKey);
-        String hashKey = "session:messages:" + sessionId + ":" + messageIndex;
-        redisTemplate.opsForHash().put(hashKey, messageIndex.toString(), text);
-        // 同时设置计数器和哈希表的过期时间
-        redisTemplate.expire(counterKey, 5, TimeUnit.MINUTES);
-        redisTemplate.expire(hashKey, 5, TimeUnit.MINUTES);
+        try {
+            String counterKey = "session:messages:counter:" + sessionId;
+            Long messageIndex = redisTemplate.opsForValue().increment(counterKey);
+            String hashKey = "session:messages:" + sessionId + ":" + messageIndex;
+            redisTemplate.opsForHash().put(hashKey, messageIndex.toString(), text);
+            // 同时设置计数器和哈希表的过期时间
+            redisTemplate.expire(counterKey, 5, TimeUnit.MINUTES);
+            redisTemplate.expire(hashKey, 5, TimeUnit.MINUTES);
+        } catch (Exception e) {
+            log.warn("Redis存储消息失败，sessionId={}, text={}, 原因: {}", sessionId, text, e.getMessage());
+        }
     }
 
     // 根据 sessionId 从 Redis 获取历史消息
     public List<String> getMessagesFromRedis(String sessionId) {
-        String counterKey = "session:messages:counter:" + sessionId;
-        String maxIndexStr = redisTemplate.opsForValue().get(counterKey);
-        Long maxIndex = (maxIndexStr == null) ? 0L : Long.parseLong(maxIndexStr);
-        if (maxIndex == 0) {
+        try {
+            String counterKey = "session:messages:counter:" + sessionId;
+            String maxIndexStr = redisTemplate.opsForValue().get(counterKey);
+            Long maxIndex = (maxIndexStr == null) ? 0L : Long.parseLong(maxIndexStr);
+            if (maxIndex == 0) {
+                return List.of();
+            }
+            List<String> messages = new ArrayList<>();
+            for (long i = 1; i < maxIndex; i++) {
+                String hashKey = "session:messages:" + sessionId + ":" + i;
+                Object value = redisTemplate.opsForHash().get(hashKey, String.valueOf(i));
+                if (value != null) {
+                    messages.add(value.toString());
+                }
+            }
+            return messages;
+        } catch (Exception e) {
+            log.warn("Redis读取消息失败，sessionId={}, 原因: {}", sessionId, e.getMessage());
             return List.of();
         }
-        List<String> messages = new ArrayList<>();
-        for (long i = 1; i < maxIndex; i++) {
-            String hashKey = "session:messages:" + sessionId + ":" + i;
-            Object value = redisTemplate.opsForHash().get(hashKey, String.valueOf(i));
-            if (value != null) {
-                messages.add(value.toString());
-            }
-        }
-        return messages;
     }
 
     public List<SessionHistoryDto> getSessionHistoriesByUserId(String userId) {
