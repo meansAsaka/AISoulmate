@@ -33,9 +33,9 @@ AI角色扮演聊天平台
 
 #### 登录、注册页面（注册页面的 "+" 部分是上传头像图片）
 
-![login](E:\AISoulmate\AISoulmate\images\login.png)
+![login](./images/login.png)
 
-![Register](E:\AISoulmate\AISoulmate\images\Register.png)
+![Register](./images/Register.png)
 
 #### 主页面
 
@@ -47,7 +47,7 @@ AI角色扮演聊天平台
 
 4. 热门聊天角色展示，点击对应头像即可与对应AI进行对话
 
-![HomePage](E:\AISoulmate\AISoulmate\images\HomePage.png)
+![HomePage](./images/HomePage.png)
 
 #### 角色对话界面
 
@@ -56,9 +56,9 @@ AI角色扮演聊天平台
 3. 也可进行语音通话
 4. 点击上方logo或者右上角关闭即可返回主界面
 
-![ChatPage](E:\AISoulmate\AISoulmate\images\ChatPage.png)
+![ChatPage](./images/ChatPage.png)
 
-![Chat](E:\AISoulmate\AISoulmate\images\Chat.png)
+![Chat](./images/Chat.png)
 
 相关文档：
 
