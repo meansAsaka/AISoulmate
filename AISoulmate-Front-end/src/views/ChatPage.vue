@@ -102,11 +102,141 @@
           <img src="/src/assets/icon/phone.svg" alt="电话" width="44" height="44" />
         </button>
       </form>
+
+      <!-- 语音通话 Toast -->
+      <div v-if="voiceCallActive" class="voice-toast">
+        <div class="voice-toast-content">
+          <span class="voice-time">实时通话：{{ formatDuration(callDuration) }}</span>
+          <button class="hangup-btn" @click="stopVoiceCall">挂断</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+// WebRTC & WebSocket相关变量
+const pcConfig = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    // 如有需要可添加TURN服务器
+  ],
+}
+let localStream: MediaStream | null = null
+let pc: RTCPeerConnection | null = null
+let ws: WebSocket | null = null
+const signalingUrl = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws/rtc?roomId=room-123`
+
+// 语音通话 Toast 状态
+const voiceCallActive = ref(false)
+const callDuration = ref(0)
+let callTimer: number | null = null
+
+function formatDuration(sec: number) {
+  const m = Math.floor(sec / 60)
+  const s = sec % 60
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+}
+
+function startVoiceCall() {
+  voiceCallActive.value = true
+  callDuration.value = 0
+  if (callTimer) clearInterval(callTimer)
+  callTimer = window.setInterval(() => {
+    callDuration.value++
+  }, 1000)
+
+  // 1. 采集麦克风
+  navigator.mediaDevices
+    .getUserMedia({ audio: true })
+    .then((stream) => {
+      localStream = stream
+      // 2. 建立PeerConnection
+      pc = new RTCPeerConnection(pcConfig)
+      localStream.getTracks().forEach((track) => pc!.addTrack(track, localStream!))
+
+      // 3. 远端音频播放
+      pc.ontrack = (ev) => {
+        const remoteAudio = document.createElement('audio')
+        remoteAudio.srcObject = ev.streams[0]
+        remoteAudio.autoplay = true
+        document.body.appendChild(remoteAudio)
+      }
+
+      // 4. ICE候选处理
+      pc.onicecandidate = (event) => {
+        if (event.candidate && ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'ice', candidate: event.candidate }))
+        }
+      }
+
+      // 5. 建立WebSocket信令连接
+      ws = new WebSocket(signalingUrl)
+      ws.onopen = async () => {
+        // 发起方创建offer
+        const offer = await pc!.createOffer()
+        await pc!.setLocalDescription(offer)
+        ws!.send(
+          JSON.stringify({
+            type: 'offer',
+            sdp: offer.sdp,
+            descriptionType: offer.type,
+            roomId: 'room-123',
+          }),
+        )
+      }
+      ws.onmessage = async (ev) => {
+        const msg = JSON.parse(ev.data)
+        if (msg.type === 'answer') {
+          await pc!.setRemoteDescription({ type: 'answer', sdp: msg.sdp })
+        } else if (msg.type === 'offer') {
+          await pc!.setRemoteDescription({ type: 'offer', sdp: msg.sdp })
+          const answer = await pc!.createAnswer()
+          await pc!.setLocalDescription(answer)
+          ws!.send(JSON.stringify({ type: 'answer', sdp: answer.sdp, roomId: msg.roomId }))
+        } else if (msg.type === 'ice') {
+          try {
+            await pc!.addIceCandidate(msg.candidate)
+          } catch (e) {
+            console.warn('addIceCandidate error', e)
+          }
+        }
+      }
+      ws.onclose = () => {
+        // 可选：清理远端audio标签
+      }
+    })
+    .catch((err) => {
+      console.error('麦克风权限或设备错误', err)
+    })
+}
+
+function stopVoiceCall() {
+  voiceCallActive.value = false
+  if (callTimer) {
+    clearInterval(callTimer)
+    callTimer = null
+  }
+  // 挂断WebRTC和WebSocket
+  if (pc) {
+    pc.getSenders().forEach((s) => {
+      try {
+        s.track?.stop()
+      } catch {}
+    })
+    pc.close()
+    pc = null
+  }
+  if (localStream) {
+    localStream.getTracks().forEach((t) => t.stop())
+    localStream = null
+  }
+  if (ws) {
+    ws.close()
+    ws = null
+  }
+}
+
 import { useRouter } from 'vue-router'
 const router = useRouter()
 
@@ -145,11 +275,6 @@ const sendLoading = ref(false)
 // 选择模型名称（tongyi 或 deepseek）
 const modelName = ref<'tongyi' | 'deepseek'>('tongyi')
 
-function startVoiceCall() {
-  // TODO: WebSocket语音功能实现
-  alert('语音通话功能开发中...')
-}
-
 // 创建会话
 async function createSessionIfNeeded() {
   if (sessionId.value) return sessionId.value
@@ -177,7 +302,7 @@ async function createSessionIfNeeded() {
     const data = await res.json()
     sessionId.value = data.id
     return sessionId.value
-  } catch (err: any) {
+  } catch (err) {
     console.error('createSessionIfNeeded error', err)
     // 失败时留空，让 sendMsg 使用本地模拟回复
     return null
@@ -227,15 +352,25 @@ async function sendMsg() {
     else if (data.message && typeof data.message === 'string') replyText = data.message
     else if (Array.isArray(data.messages) && data.messages.length > 0) {
       // 找到最后一条 ai 回复
-      const aiMsg = data.messages
-        .reverse()
-        .find((m: any) => m.from === 'ai' || m.role === 'assistant' || m.sender === 'ai')
+      const aiMsg = data.messages.reverse().find((m: unknown) => {
+        if (typeof m === 'object' && m !== null) {
+          const mm = m as {
+            from?: string
+            role?: string
+            sender?: string
+            text?: string
+            content?: string
+          }
+          return mm.from === 'ai' || mm.role === 'assistant' || mm.sender === 'ai'
+        }
+        return false
+      })
       replyText = aiMsg ? aiMsg.text || aiMsg.content || JSON.stringify(aiMsg) : ''
     } else if (data.text) replyText = data.text
     else replyText = JSON.stringify(data)
 
     messages.value.push({ id: Date.now() + 2, from: 'ai', text: replyText })
-  } catch (err: any) {
+  } catch (err) {
     console.error('sendMsg error', err)
     messages.value.push({
       id: Date.now() + 3,
@@ -278,11 +413,17 @@ onMounted(async () => {
         const data = await res.json()
         if (Array.isArray(data)) {
           // 根据你提供的历史消息格式进行处理
-          messages.value = data.map((msg: any) => ({
-            id: msg.id || Date.now() + Math.random(),
-            from: msg.role === 'user' ? 'user' : 'ai', // 根据role字段判断是用户还是AI
-            text: msg.text, // 直接使用text字段
-          }))
+          messages.value = data.map((msg: unknown) => {
+            if (typeof msg === 'object' && msg !== null) {
+              const m = msg as { id?: number; role?: string; text?: string }
+              return {
+                id: m.id || Date.now() + Math.random(),
+                from: m.role === 'user' ? 'user' : 'ai',
+                text: m.text || '',
+              }
+            }
+            return { id: Date.now() + Math.random(), from: 'ai', text: '' }
+          })
 
           // 如果没有消息记录，保留默认欢迎消息
           if (messages.value.length === 0) {
@@ -306,6 +447,46 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* 语音通话 Toast 样式 */
+.voice-toast {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(38, 38, 38, 0.95);
+  color: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(60, 80, 120, 0.18);
+  padding: 18px 32px;
+  z-index: 9999;
+  min-width: 220px;
+  display: flex;
+  align-items: center;
+}
+.voice-toast-content {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.voice-time {
+  font-size: 1.18rem;
+  font-weight: bold;
+}
+.hangup-btn {
+  background: linear-gradient(90deg, #7c3aed 0%, #38bdf8 100%);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 1.08rem;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(60, 80, 120, 0.12);
+  transition: background 0.2s;
+}
+.hangup-btn:hover {
+  background: linear-gradient(90deg, #38bdf8 0%, #7c3aed 100%);
+}
 /* 顶栏样式 */
 .chat-root {
   min-height: 100vh;
