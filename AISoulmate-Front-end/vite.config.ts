@@ -25,6 +25,13 @@ export default defineConfig({
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, '/api/v1'),
       },
+      // WebSocket代理配置：转发WebSocket连接到后端
+      '/ws': {
+        target: 'ws://localhost:8080', // 后端WebSocket服务地址
+        ws: true, // 启用WebSocket代理
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
 })
