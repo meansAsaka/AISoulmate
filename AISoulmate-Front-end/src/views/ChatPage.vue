@@ -122,6 +122,7 @@ const pcConfig = {
     // 如有需要可添加TURN服务器
   ],
 }
+
 let localStream: MediaStream | null = null
 let pc: RTCPeerConnection | null = null
 let ws: WebSocket | null = null
