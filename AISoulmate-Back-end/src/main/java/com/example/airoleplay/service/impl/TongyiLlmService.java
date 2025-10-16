@@ -5,6 +5,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.ChatClient;
+import org.springframework.ai.chat.Generation;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -19,41 +24,41 @@ import com.example.airoleplay.util.PromptBuilder;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class TongyiLlmService implements LlmService {
     private final SessionService sessionService;
     private final CharacterService characterService;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ChatClient chatClient;
 
-    @Value("${llm.tongyi.api-key}")
-    private String apiKey;
+    public TongyiLlmService(
+        SessionService sessionService,
+        CharacterService characterService,
+        @Qualifier("tongyiChatClient") ChatClient chatClient
+    ) {
+        this.sessionService = sessionService;
+        this.characterService = characterService;
+        this.chatClient = chatClient;
+    }
 
     @Override
     public void streamChat(String text, String sessionId, WebSocketSession webSocketSession) {
         try {
-            // 保存用户消息
             sessionService.saveMessage(sessionId, com.example.airoleplay.entity.Message.Role.user, text);
             sessionService.saveMessagesToRedis(sessionId,  text);
 
-            // 获取 Session 实体
             com.example.airoleplay.entity.Session session = sessionService.getSessionById(sessionId).orElse(null);
             if (session == null) {
                 log.error("未找到会话: {}", sessionId);
                 return;
             }
 
-            // 获取历史消息
             List<String> historytexts = sessionService.getMessagesFromRedis(session.getId());
-
-            // 构建带人设的 prompt
             String prompt = PromptBuilder.buildRolePlayPrompt(text, session, characterService, historytexts);
 
-            // 调用真实API
-            String response = callTongyiApi(prompt);
+            String response = callTongyiAi(prompt);
             sessionService.saveMessage(sessionId, com.example.airoleplay.entity.Message.Role.assistant, response);
             sessionService.saveMessagesToRedis(sessionId, response);
 
-            // 发送完整响应
             synchronized (webSocketSession) {
                 Map<String, Object> msg = new HashMap<>();
                 msg.put("reply", response);
@@ -62,73 +67,33 @@ public class TongyiLlmService implements LlmService {
             }
 
         } catch (Exception e) {
-            log.error("通义千问API调用失败", e);
+            log.error("通义千问AI调用失败", e);
         }
     }
 
-    private String callTongyiApi(String text) throws Exception {
-        Map<String, Object> request = new HashMap<>();
-        request.put("model", "qwen-turbo");
-
-        Map<String, Object> input = new HashMap<>();
-        input.put("messages", List.of(Map.of("role", "user", "content", text)));
-        request.put("input", input);
-
-        Map<String, Object> parameters = new HashMap<>();
-        parameters.put("result_format", "message");
-        request.put("parameters", parameters);
-
-        WebClient client = WebClient.builder()
-                .defaultHeader("Authorization", "Bearer " + apiKey)
-                .defaultHeader("Content-Type", "application/json")
-                .defaultHeader("Accept", "application/json")
-                .build();
-
-        String response = client.post()
-                .uri("https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation")
-                .bodyValue(request)
-                .retrieve()
-                .bodyToMono(String.class)
-                .block();
-
-        log.info("通义千问API响应: {}", response);
-        JsonNode node = objectMapper.readTree(response);
-
-        // 检查是否有错误
-        if (node.has("code")) {
-            throw new RuntimeException("API调用失败: " + node.path("message").asText());
-        }
-
-        String result = node.path("output").path("choices").get(0).path("message").path("content").asText();
-        if (result.isEmpty()) {
-            result = node.path("output").path("text").asText();
-        }
-        // 返回 JSON 字符串
+    private String callTongyiAi(String prompt) {
+        Prompt springAiPrompt = new Prompt(List.of(new UserMessage(prompt)));
+        Generation generation = chatClient.call(springAiPrompt).getResult();
+        String result = generation.getOutput().getContent();
         Map<String, Object> msg = new HashMap<>();
         msg.put("reply", result);
         msg.put("done", true);
-        return objectMapper.writeValueAsString(msg);
+        try {
+            return objectMapper.writeValueAsString(msg);
+        } catch (Exception e) {
+            return result;
+        }
     }
 
     @Override
     public String generateResponse(String text) {
-        try {
-            return callTongyiApi(text);
-        } catch (Exception e) {
-            log.error("通义千问API调用失败", e);
-            throw new RuntimeException("通义千问API调用失败: " + e.getMessage(), e);
-        }
+        return callTongyiAi(text);
     }
 
     @Override
     public String generateResponse(String text, com.example.airoleplay.entity.Session session) {
-        try {
-            List<String> historytexts = sessionService.getMessagesFromRedis(session.getId());
-            String prompt = PromptBuilder.buildRolePlayPrompt(text, session, characterService, historytexts);
-            return callTongyiApi(prompt);
-        } catch (Exception e) {
-            log.error("通义千问API调用失败", e);
-            throw new RuntimeException("通义千问API调用失败: " + e.getMessage(), e);
-        }
+        List<String> historytexts = sessionService.getMessagesFromRedis(session.getId());
+        String prompt = PromptBuilder.buildRolePlayPrompt(text, session, characterService, historytexts);
+        return callTongyiAi(prompt);
     }
 }
